@@ -3,7 +3,7 @@ const {sequelize} = require('../config/database');
 const bcrypt = require('bcrypt');
 
 const User = sequelize.define('User', {
-    Id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     fullName: { type: DataTypes.STRING, allowNull: false },
     cccd: { type: DataTypes.STRING(12), allowNull: false, unique: true },
     email: { type: DataTypes.STRING, allowNull: false, unique: true },
@@ -11,6 +11,20 @@ const User = sequelize.define('User', {
     role: { type: DataTypes.ENUM('citizen', 'officer', 'admin'), defaultValue: 'citizen' },
     isVerified: { type: DataTypes.BOOLEAN, defaultValue: false },
     verifyToken: { type: DataTypes.STRING},
+    dob: { type: DataTypes.DATEONLY },
+    phone: { type: DataTypes.STRING },
+    gender: { type: DataTypes.STRING },
+    pob: { type: DataTypes.STRING },
+    hometown: { type: DataTypes.STRING },
+    address: { type: DataTypes.STRING },
+    taxCode: { type: DataTypes.STRING },
+    insuranceCode: { type: DataTypes.STRING },
+    passport: { type: DataTypes.STRING },
+    driverLicense: { type: DataTypes.STRING },
+    nationality: { type: DataTypes.STRING },
+    issueDate: { type: DataTypes.DATEONLY },
+    expiryDate: { type: DataTypes.DATEONLY },
+    issuePlace: { type: DataTypes.STRING }
 }, {
     tableName: 'users',
     hooks: {

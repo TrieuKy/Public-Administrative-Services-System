@@ -1,17 +1,35 @@
 const nodemailer = require('nodemailer');
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: false,
-  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASSWORD }
-});
+// Guard: nếu chưa cấu hình email thì log thay vì crash
+const emailConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASSWORD);
 
-const send = (to, subject, html) =>
-  transporter.sendMail({ from: `"Hành chính công" <${process.env.EMAIL_USER}>`, to, subject, html });
+const transporter = emailConfigured
+  ? nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: false,
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASSWORD }
+    })
+  : null;
+
+const send = (to, subject, html) => {
+  if (!transporter) {
+    console.warn(`[Email] Chưa cấu hình SMTP — bỏ qua email gửi đến ${to}: ${subject}`);
+    return Promise.resolve();
+  }
+  return transporter.sendMail({
+    from: `"Hành chính công" <${process.env.EMAIL_USER}>`, to, subject, html
+  });
+};
 
 exports.sendVerificationEmail = (to, token) => {
-  const url = `${process.env.CLIENT_URL}/verify-email?token=${token}`;
+  const url = `${process.env.CLIENT_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
+  
+  console.log('\\n=====================================================');
+  console.log(`🚀 [DEV MODE] Đã giả lập gửi Email xác thực tới: ${to}`);
+  console.log(`👉 Link kích hoạt: \x1b[31m${url}\x1b[0m`);
+  console.log('=====================================================\\n');
+
   return send(to, 'Xác nhận tài khoản', `
     <h2>Xác nhận tài khoản của bạn</h2>
     <p>Nhấn vào liên kết bên dưới để kích hoạt tài khoản:</p>

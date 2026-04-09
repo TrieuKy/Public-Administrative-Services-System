@@ -7,6 +7,18 @@ const path = require('path');
 exports.getServices = async (req, res) => {
   try {
     const { category, page = 1, limit = 10 } = req.query;
+    
+    // Auto-seed if db is empty for previewing
+    const existCount = await Service.count();
+    if (existCount === 0) {
+      await Service.bulkCreate([
+        { name: 'Đăng ký khai sinh', category: 'Hộ tịch', currentFee: 15000, processingDays: 3, requiredDocs: ['Giấy chứng sinh', 'CMND/CCCD cha mẹ', 'Giấy đăng ký kết hôn'], isActive: true },
+        { name: 'Đăng ký kết hôn', category: 'Hộ tịch', currentFee: 30000, processingDays: 5, requiredDocs: ['Giấy xác nhận tình trạng hôn nhân', 'CMND/CCCD hai bên', 'Sổ hộ khẩu'], isActive: true },
+        { name: 'Đăng ký thường trú', category: 'Cư trú', currentFee: 20000, processingDays: 7, requiredDocs: ['Mẫu CT01 - Tờ khai thay đổi thông tin cư trú', 'Giấy tờ chứng minh chỗ ở hợp pháp'], isActive: true },
+        { name: 'Cấp chứng minh thư / CCCD', category: 'Cư trú', currentFee: 50000, processingDays: 15, requiredDocs: ['Sổ hộ khẩu', 'Tờ khai cấp CCCD', 'Ảnh thẻ 4x6'], isActive: true }
+      ]);
+    }
+
     const where = { isActive: true };
     if (category) where.category = category;
 
