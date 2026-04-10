@@ -8,18 +8,21 @@ const quochuy = '';
 export function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
     setIsLoggedIn(!!localStorage.getItem('token'));
     setFullName(localStorage.getItem('fullName') || '');
+    setRole(localStorage.getItem('role') || 'citizen');
     setIsDropdownOpen(false);
   }, [location.pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('fullName');
+    localStorage.removeItem('role');
     setIsLoggedIn(false);
     window.location.href = '/';
   };
@@ -61,13 +64,24 @@ export function Header() {
 
                 {isDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg py-1 z-50">
-                    <Link
-                      to="/profile"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition"
-                    >
-                      <Settings size={16} />
-                      Thông tin cá nhân
-                    </Link>
+                    {role !== 'officer' && (
+                      <Link
+                        to="/profile"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition"
+                      >
+                        <Settings size={16} />
+                        Thông tin cá nhân
+                      </Link>
+                    )}
+                    {role === 'admin' || role === 'officer' ? (
+                      <Link
+                        to="/officer/overview"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition"
+                      >
+                        <UserIcon size={16} />
+                        Dashboard Cán bộ
+                      </Link>
+                    ) : null}
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition text-left"

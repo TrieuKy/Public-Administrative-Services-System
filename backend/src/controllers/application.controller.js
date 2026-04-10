@@ -1,4 +1,4 @@
-const { Application, Document, Service, User } = require('../models');
+const { Application, Document, Service, User, ApplicationHistory } = require('../models');
 const { success, error } = require('../utils/response');
 const emailService = require('../services/email.service');
 const path = require('path');
@@ -99,7 +99,19 @@ exports.submitApplication = async (req, res) => {
     if (app.status !== 'DRAFT') return error(res, 'Hồ sơ đã được nộp trước đó', 409);
     if (!app.documents.length)  return error(res, 'Chưa upload giấy tờ nào', 422);
 
-    await app.update({ status: 'PENDING', submittedAt: new Date() });
+    const processingDays = app.service?.processingDays || 5;
+    const deadline = new Date();
+    deadline.setDate(deadline.getDate() + processingDays);
+
+    await app.update({ status: 'PENDING', submittedAt: new Date(), deadline });
+    
+    await ApplicationHistory.create({
+      applicationId: app.id,
+      actorId: req.user.id,
+      action: 'Nộp hồ sơ',
+      note: 'Công dân nộp hồ sơ trực tuyến'
+    });
+
     await emailService.sendApplicationConfirm(app.citizen.email, app.applicationCode);
 
     return success(res, {
@@ -136,7 +148,11 @@ exports.getApplicationDetail = async (req, res) => {
       include: [
         { model: Service,  as: 'service' },
         { model: Document, as: 'documents' },
-        { model: User,     as: 'officer', attributes: ['fullName'] }
+        { model: User,     as: 'officer', attributes: ['fullName'] },
+        { model: ApplicationHistory, as: 'histories', include: [{ model: User, as: 'actor', attributes: ['fullName', 'role'] }] }
+      ],
+      order: [
+        [{ model: ApplicationHistory, as: 'histories' }, 'createdAt', 'DESC']
       ]
     });
     if (!app) return error(res, 'Hồ sơ không tồn tại', 404);
@@ -167,6 +183,14 @@ exports.supplementDocument = async (req, res) => {
     });
 
     await app.update({ status: 'PROCESSING' });
+    
+    await ApplicationHistory.create({
+      applicationId: app.id,
+      actorId: req.user.id,
+      action: 'Bổ sung hồ sơ',
+      note: `Bổ sung tài liệu: ${req.body.docType}`
+    });
+
     return success(res, { status: 'PROCESSING', message: 'Đã bổ sung, cán bộ được thông báo' });
   } catch (err) { return error(res, err.message, 500); }
 };
@@ -182,6 +206,31 @@ exports.cancelApplication = async (req, res) => {
       return error(res, 'Không thể rút hồ sơ ở trạng thái này', 409);
 
     await app.update({ status: 'CANCELLED', cancelReason: req.body.reason });
+    
+    await ApplicationHistory.create({
+      applicationId: app.id,
+      actorId: req.user.id,
+      action: 'Rút hồ sơ',
+      note: req.body.reason
+    });
+
     return success(res, { status: 'CANCELLED' });
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+// UC: Đánh giá hồ sơ hoàn thành
+exports.rateApplication = async (req, res) => {
+  try {
+    const { rating, feedback } = req.body;
+    if (!rating || rating < 1 || rating > 5) return error(res, 'Vui lòng đánh giá từ 1 đến 5 sao', 400);
+
+    const app = await Application.findOne({
+      where: { id: req.params.id, userId: req.user.id }
+    });
+    if (!app) return error(res, 'Hồ sơ không tồn tại', 404);
+    if (app.status !== 'COMPLETED') return error(res, 'Chỉ có thể đánh giá hồ sơ đã hoàn thành', 409);
+
+    await app.update({ rating, ratingContent: feedback });
+    return success(res, { message: 'Cảm ơn bạn đã đánh giá dịch vụ!' });
   } catch (err) { return error(res, err.message, 500); }
 };

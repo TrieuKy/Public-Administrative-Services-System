@@ -11,9 +11,15 @@ import { LoginPage } from './components/pages/LoginPage';
 import { RegisterPage } from './components/pages/RegisterPage';
 import { ServiceFormPage } from './components/pages/ServiceFormPage';
 import { ProfilePage } from './components/pages/ProfilePage';
+import { TrackingPage } from './components/pages/TrackingPage';
 import { PaymentPage } from './components/pages/PaymentPage';
 import { FeedbackPage } from './components/pages/FeedbackPage';
-import { OfficerDashboard } from './components/pages/OfficerDashboard';
+import { OfficerLayout } from './components/pages/OfficerLayout';
+import { OfficerOverview } from './components/pages/OfficerOverview';
+import { OfficerApplications } from './components/pages/OfficerApplications';
+import { OfficerReports } from './components/pages/OfficerReports';
+import { OfficerSettings } from './components/pages/OfficerSettings';
+import { OfficerSchedules } from './components/pages/OfficerSchedules';
 // import { ExportPage } from './components/pages/ExportPage';
 
 function HomePage() {
@@ -39,11 +45,19 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/service-form" element={<ServiceFormPage />} />
+        <Route path="/tracking" element={<TrackingPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/payment" element={<PaymentPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
-        <Route path="/officer/dashboard" element={<OfficerDashboard />} />
-        {/* <Route path="/export" element={<ExportPage />} /> */}
+        
+        {/* Officer/Admin Routes (Nested inside layout) */}
+        <Route path="/officer" element={<OfficerLayout />}>
+          <Route path="overview" element={<OfficerOverview />} />
+          <Route path="applications" element={<OfficerApplications />} />
+          <Route path="reports" element={<OfficerReports />} />
+          <Route path="schedules" element={<OfficerSchedules />} />
+          <Route path="settings" element={<OfficerSettings />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );

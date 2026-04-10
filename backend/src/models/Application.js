@@ -17,6 +17,9 @@ const Application = sequelize.define('Application', {
   officerNote:    { type: DataTypes.TEXT },
   submittedAt:    { type: DataTypes.DATE },
   completedAt:    { type: DataTypes.DATE },
+  deadline:       { type: DataTypes.DATE },
+  rating:         { type: DataTypes.INTEGER, validate: { min: 1, max: 5 } },
+  ratingContent:  { type: DataTypes.TEXT },
 }, {
   tableName: 'applications',
   hooks: {

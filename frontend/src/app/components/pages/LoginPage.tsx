@@ -36,7 +36,13 @@ export function LoginPage() {
       if (data.success && data.data) {
         localStorage.setItem('token', data.data.accessToken);
         localStorage.setItem('fullName', data.data.fullName || '');
-        navigate('/');
+        localStorage.setItem('role', data.data.role || 'citizen');
+        
+        if (data.data.role === 'officer' || data.data.role === 'admin') {
+          navigate('/officer/overview');
+        } else {
+          navigate('/');
+        }
       } else {
         setErrorText(data.message || 'Đăng nhập thất bại.');
       }
@@ -207,7 +213,7 @@ export function LoginPage() {
 
         {/* Officer Login */}
         <div className="mt-4 text-center">
-          <Link to="/officer/dashboard" className="text-sm text-gray-600 hover:text-red-700 transition">
+          <Link to="/officer/overview" className="text-sm text-gray-600 hover:text-red-700 transition">
             Đăng nhập dành cho cán bộ →
           </Link>
         </div>

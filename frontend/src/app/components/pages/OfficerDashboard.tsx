@@ -111,9 +111,14 @@ export function OfficerDashboard() {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <User className="text-gray-600" size={20} />
-                <span className="text-gray-700">Nguyễn Văn B</span>
+                <span className="text-gray-700">{localStorage.getItem('fullName') || 'Cán bộ'}</span>
               </div>
-              <Button variant="outline" size="sm" className="border-gray-300">
+              <Button variant="outline" size="sm" className="border-gray-300" onClick={() => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('fullName');
+                localStorage.removeItem('role');
+                window.location.href = '/';
+              }}>
                 <LogOut size={16} className="mr-2" />
                 Đăng xuất
               </Button>

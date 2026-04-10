@@ -31,7 +31,7 @@ export function ServiceFormPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    axiosInstance.get('/applications/services')
+    axiosInstance.get('/services')
       .then(res => {
         const s = res.data?.data?.services || [];
         setServices(s);

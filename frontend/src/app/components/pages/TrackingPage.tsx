@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Search, FileText, Clock, CheckCircle, XCircle, AlertCircle, ArrowLeft, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -12,6 +12,9 @@ export function TrackingPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [myApplications, setMyApplications] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [ratingVal, setRatingVal] = useState(5);
+  const [feedback, setFeedback] = useState('');
+  const [isRatingSubmitted, setIsRatingSubmitted] = useState(false);
 
   useEffect(() => {
     axiosInstance.get('/applications')
@@ -38,7 +41,20 @@ export function TrackingPage() {
     } else {
        setSearchResult(null);
     }
+    setIsRatingSubmitted(false);
     setIsSearching(false);
+  };
+
+  const submitRating = async () => {
+    try {
+      await axiosInstance.post(`/applications/${searchResult.id}/rate`, { rating: ratingVal, feedback });
+      alert('Cảm ơn bạn đã gửi đánh giá!');
+      setIsRatingSubmitted(true);
+      // Cập nhật local
+      setSearchResult({...searchResult, rating: ratingVal, ratingContent: feedback});
+    } catch(err: any) {
+      alert(err.response?.data?.message || 'Có lỗi xảy ra');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -247,6 +263,53 @@ export function TrackingPage() {
                 </Button>
               )}
             </div>
+
+            {/* Rating Section */}
+            {searchResult.status === 'COMPLETED' && (
+               <div className="mt-8 border-t pt-6">
+                 <h3 className="font-medium text-gray-900 mb-4 text-center">Đánh giá chất lượng dịch vụ hành chính</h3>
+                 {searchResult.rating || isRatingSubmitted ? (
+                   <div className="bg-green-50 border border-green-100 rounded-lg p-6 text-center">
+                      <div className="flex justify-center gap-1 text-yellow-400 mb-2">
+                        {[...Array(searchResult.rating || ratingVal)].map((_, i) => <Star key={i} fill="currentColor" />)}
+                        {[...Array(5 - (searchResult.rating || ratingVal))].map((_, i) => <Star key={i} className="text-gray-300" />)}
+                      </div>
+                      <p className="font-semibold text-green-700 mb-1">Cảm ơn bạn đã gửi đánh giá!</p>
+                      <p className="text-sm text-gray-600">Lời góp ý của bạn sẽ giúp hệ thống phục vụ tốt hơn.</p>
+                      {(searchResult.ratingContent || feedback) && (
+                        <p className="mt-3 text-sm italic text-gray-500">"{searchResult.ratingContent || feedback}"</p>
+                      )}
+                   </div>
+                 ) : (
+                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                      <p className="text-sm text-center text-gray-600 mb-4">Vui lòng đánh giá trải nghiệm của bạn về thủ tục và sự hỗ trợ của cán bộ <b>{searchResult.officer?.fullName}</b>.</p>
+                      <div className="flex justify-center gap-2 mb-6">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                           <button 
+                             key={star} 
+                             onClick={() => setRatingVal(star)}
+                             className={`p-2 transition ${ratingVal >= star ? 'text-yellow-400' : 'text-gray-300 hover:text-yellow-200'}`}
+                           >
+                             <Star size={36} fill={ratingVal >= star ? "currentColor" : "none"} />
+                           </button>
+                        ))}
+                      </div>
+                      <textarea
+                        rows={3}
+                        value={feedback}
+                        onChange={(e) => setFeedback(e.target.value)}
+                        placeholder="Để lại góp ý cụ thể (Không bắt buộc)..."
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 text-sm mb-4 outline-none"
+                      ></textarea>
+                      <div className="flex justify-center">
+                        <Button onClick={submitRating} className="bg-yellow-500 hover:bg-yellow-600 text-white font-medium px-8 w-full md:w-auto">
+                          Gửi đánh giá
+                        </Button>
+                      </div>
+                   </div>
+                 )}
+               </div>
+            )}
           </Card>
         ) : searchCode && !isSearching ? (
           <Card className="p-12 text-center">

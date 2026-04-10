@@ -1,4 +1,4 @@
-const { Application, Document, Service, User, Comment } = require('../models');
+const { Application, Document, Service, User, Comment, ApplicationHistory } = require('../models');
 const { success, error } = require('../utils/response');
 const emailService = require('../services/email.service');
 const { Op } = require('sequelize');
@@ -7,7 +7,7 @@ const { Op } = require('sequelize');
 exports.listApplications = async (req, res) => {
   try {
     const { status, serviceId, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
-    const where = {};
+    const where = { status: { [Op.ne]: 'DRAFT' } };
     if (status)    where.status = status;
     if (serviceId) where.serviceId = serviceId;
     if (dateFrom || dateTo) {
@@ -42,7 +42,18 @@ exports.getApplicationDetail = async (req, res) => {
       ]
     });
     if (!app) return error(res, 'Hồ sơ không tồn tại', 404);
-    return success(res, app);
+
+    // Lấy thêm lịch sử luân chuyển
+    const histories = await ApplicationHistory.findAll({
+      where: { applicationId: app.id },
+      include: [{ model: User, as: 'actor', attributes: ['fullName', 'position', 'role'] }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    const result = app.toJSON();
+    result.histories = histories;
+
+    return success(res, result);
   } catch (err) { return error(res, err.message, 500); }
 };
 
@@ -60,6 +71,14 @@ exports.approveApplication = async (req, res) => {
       status: 'COMPLETED', officerId: req.user.id,
       officerNote: req.body.note, completedAt: new Date()
     });
+
+    await ApplicationHistory.create({
+      applicationId: app.id,
+      actorId: req.user.id,
+      action: 'Duyệt hồ sơ',
+      note: req.body.note || 'Hồ sơ đủ điều kiện và được duyệt'
+    });
+
     await emailService.sendStatusUpdate(app.citizen.email, app.applicationCode, 'COMPLETED', req.body.note);
 
     return success(res, { status: 'COMPLETED', message: 'Email đã gửi đến người dân' });
@@ -79,6 +98,14 @@ exports.rejectApplication = async (req, res) => {
 
     const fullReason = legalBasis ? `${reason} (Căn cứ: ${legalBasis})` : reason;
     await app.update({ status: 'REJECTED', officerId: req.user.id, rejectReason: fullReason });
+    
+    await ApplicationHistory.create({
+      applicationId: app.id,
+      actorId: req.user.id,
+      action: 'Từ chối hồ sơ',
+      note: fullReason
+    });
+
     await emailService.sendStatusUpdate(app.citizen.email, app.applicationCode, 'REJECTED', fullReason);
 
     return success(res, { status: 'REJECTED' });
@@ -95,9 +122,19 @@ exports.requestSupplement = async (req, res) => {
     if (!app) return error(res, 'Hồ sơ không tồn tại', 404);
 
     await app.update({ status: 'NEED_MORE', officerId: req.user.id });
+    
+    const supplementNote = `Cần bổ sung: ${requiredDocs?.join(', ')}. ${note || ''}`;
+
+    await ApplicationHistory.create({
+      applicationId: app.id,
+      actorId: req.user.id,
+      action: 'Yêu cầu bổ sung',
+      note: supplementNote
+    });
+
     await emailService.sendStatusUpdate(
       app.citizen.email, app.applicationCode, 'NEED_MORE',
-      `Cần bổ sung: ${requiredDocs?.join(', ')}. ${note || ''}`
+      supplementNote
     );
 
     return success(res, { status: 'NEED_MORE' });

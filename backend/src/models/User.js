@@ -24,7 +24,12 @@ const User = sequelize.define('User', {
     nationality: { type: DataTypes.STRING },
     issueDate: { type: DataTypes.DATEONLY },
     expiryDate: { type: DataTypes.DATEONLY },
-    issuePlace: { type: DataTypes.STRING }
+    issuePlace: { type: DataTypes.STRING },
+    // Custom Fields for Officer
+    officerCode: { type: DataTypes.STRING, unique: true },
+    department: { type: DataTypes.STRING },
+    workPhone: { type: DataTypes.STRING },
+    position: { type: DataTypes.STRING }
 }, {
     tableName: 'users',
     hooks: {
