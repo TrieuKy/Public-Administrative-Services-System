@@ -1,30 +1,22 @@
-import { Home, User as UserIcon, Search, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { Home, User as UserIcon, Settings, LogOut, ChevronDown, Phone, Mail, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from './ui/button';
 import { useState, useEffect } from 'react';
-// import quochuy from 'figma:asset/0c39003aa259bb6a3d5c50ee4e5afc4504bb9aa4.png';
-const quochuy = '';
+import { useAuth } from '../../context/AuthContext';
 
 export function Header() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState('');
+  const { user, logout } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
-    setIsLoggedIn(!!localStorage.getItem('token'));
-    setFullName(localStorage.getItem('fullName') || '');
-    setRole(localStorage.getItem('role') || 'citizen');
     setIsDropdownOpen(false);
+    setIsSupportOpen(false);
   }, [location.pathname]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('fullName');
-    localStorage.removeItem('role');
-    setIsLoggedIn(false);
-    window.location.href = '/';
+    logout();
   };
 
   return (
@@ -32,11 +24,19 @@ export function Header() {
       {/* Main header */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-24 border-b border-gray-200">
-          {/* Logo with Quốc huy */}
+          {/* Logo */}
           <Link to="/" className="flex items-center gap-4">
-            <img src={quochuy} alt="Quốc huy Việt Nam" className="w-14 h-14 object-contain" />
+            <img
+              src="/logo.png"
+              alt="Logo Cổng Dịch vụ công"
+              className="w-14 h-14 object-contain"
+              onError={(e) => {
+                // Fallback: hiển thị chữ nếu chưa có file logo
+                e.currentTarget.style.display = 'none';
+              }}
+            />
             <div>
-              <div className="text-red-700 text-xl tracking-tight" style={{ fontFamily: 'serif' }}>
+              <div className="text-red-700 text-xl tracking-tight font-bold" style={{ fontFamily: 'serif' }}>
                 CỔNG DỊCH VỤ CÔNG CẤP XÃ/PHƯỜNG
               </div>
               <div className="text-sm text-gray-600 mt-0.5">
@@ -47,24 +47,24 @@ export function Header() {
 
           {/* Actions */}
           <div className="flex items-center gap-3">
-            {isLoggedIn ? (
+            {user ? (
               <div className="relative">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="flex items-center gap-2 px-3 py-2 border rounded hover:bg-gray-50 transition"
                 >
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700">
-                    <UserIcon size={16} />
+                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold">
+                    {user.fullName?.charAt(0) || <UserIcon size={16} />}
                   </div>
                   <span className="text-gray-700 font-medium text-sm hidden md:block">
-                    {fullName || 'Người dùng'}
+                    {user.fullName || 'Người dùng'}
                   </span>
                   <ChevronDown size={14} className="text-gray-500" />
                 </button>
 
                 {isDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg py-1 z-50">
-                    {role !== 'officer' && (
+                    {user.role !== 'officer' && (
                       <Link
                         to="/profile"
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition"
@@ -73,7 +73,7 @@ export function Header() {
                         Thông tin cá nhân
                       </Link>
                     )}
-                    {role === 'admin' || role === 'officer' ? (
+                    {(user.role === 'admin' || user.role === 'officer') && (
                       <Link
                         to="/officer/overview"
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition"
@@ -81,7 +81,7 @@ export function Header() {
                         <UserIcon size={16} />
                         Dashboard Cán bộ
                       </Link>
-                    ) : null}
+                    )}
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition text-left"
@@ -110,7 +110,7 @@ export function Header() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex items-center h-14 overflow-x-auto">
+        <nav className="flex items-center h-14 overflow-visible">
           <div className="flex items-center gap-1">
             <Link
               to="/"
@@ -127,28 +127,59 @@ export function Header() {
             </Link>
             <Link
               to="/service-form"
-              className="bg-[#cc6633] text-white px-4 py-2 rounded font-medium hover:bg-[#b55a2d] transition text-sm whitespace-nowrap hidden md:block"
+              className="bg-[#cc6633] text-white px-4 py-2 rounded font-medium hover:bg-[#b55a2d] transition text-sm whitespace-nowrap"
             >
               Nộp hồ sơ trực tuyến
             </Link>
             <Link
               to="/feedback"
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition text-sm whitespace-nowrap hidden lg:block"
+              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition text-sm whitespace-nowrap"
             >
-              Phản ánh kiến nghị
+              Phản ánh &amp; Kiến nghị
             </Link>
-            <a
-              href="#"
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition text-sm whitespace-nowrap hidden lg:block"
+            <Link
+              to="/tracking"
+              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition text-sm whitespace-nowrap"
             >
-              Đánh giá chất lượng phục vụ
-            </a>
-            <a
-              href="#"
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition text-sm whitespace-nowrap hidden lg:block"
-            >
-              Hỗ trợ
-            </a>
+              Tra cứu hồ sơ
+            </Link>
+
+            {/* Nút Hỗ trợ có popup */}
+            <div className="relative">
+              <button
+                onClick={() => setIsSupportOpen(!isSupportOpen)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition text-sm whitespace-nowrap"
+              >
+                Hỗ trợ
+              </button>
+              {isSupportOpen && (
+                <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-gray-200 rounded-xl shadow-xl p-4 z-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-gray-800">Thông tin hỗ trợ</h3>
+                    <button onClick={() => setIsSupportOpen(false)} className="text-gray-400 hover:text-gray-600">
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center gap-3 p-2 bg-red-50 rounded-lg">
+                      <Phone size={18} className="text-red-600 shrink-0" />
+                      <div>
+                        <p className="font-medium text-gray-700">Đường dây nóng</p>
+                        <a href="tel:02438250000" className="text-red-700 font-bold">(024) 3825.0000</a>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-2 bg-orange-50 rounded-lg">
+                      <Mail size={18} className="text-orange-600 shrink-0" />
+                      <div>
+                        <p className="font-medium text-gray-700">Email hỗ trợ</p>
+                        <a href="mailto:ubnd@xa.gov.vn" className="text-orange-700">ubnd@xa.gov.vn</a>
+                      </div>
+                    </div>
+                    <p className="text-gray-500 text-xs text-center">Thứ 2 – Thứ 6 | 7:30 – 17:00</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </nav>
       </div>

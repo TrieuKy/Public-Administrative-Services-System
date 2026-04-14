@@ -1,4 +1,7 @@
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from '../context/AuthContext';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { QuickSearch } from './components/QuickSearch';
@@ -20,7 +23,8 @@ import { OfficerApplications } from './components/pages/OfficerApplications';
 import { OfficerReports } from './components/pages/OfficerReports';
 import { OfficerSettings } from './components/pages/OfficerSettings';
 import { OfficerSchedules } from './components/pages/OfficerSchedules';
-// import { ExportPage } from './components/pages/ExportPage';
+import { OfficerPostsPage } from './components/pages/OfficerPostsPage';
+import { OfficerServicesPage } from './components/pages/OfficerServicesPage';
 
 function HomePage() {
   return (
@@ -36,29 +40,61 @@ function HomePage() {
   );
 }
 
-export default function App() {
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const location = useLocation();
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  return <>{children}</>;
+}
+
+function OfficerRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (!user || (user.role !== 'officer' && user.role !== 'admin')) {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
+
+function AppContent() {
+  const location = useLocation();
+  const isOfficerPage = location.pathname.startsWith('/officer');
   return (
-    <BrowserRouter>
-      <Header />
+    <>
+      {!isOfficerPage && <Header />}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path="/service-form" element={<ServiceFormPage />} />
+        <Route path="/service-form" element={<ProtectedRoute><ServiceFormPage /></ProtectedRoute>} />
         <Route path="/tracking" element={<TrackingPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="/payment" element={<PaymentPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
         
         {/* Officer/Admin Routes (Nested inside layout) */}
-        <Route path="/officer" element={<OfficerLayout />}>
+        <Route path="/officer" element={<OfficerRoute><OfficerLayout /></OfficerRoute>}>
           <Route path="overview" element={<OfficerOverview />} />
           <Route path="applications" element={<OfficerApplications />} />
+          <Route path="posts" element={<OfficerPostsPage />} />
+          <Route path="services" element={<OfficerServicesPage />} />
           <Route path="reports" element={<OfficerReports />} />
           <Route path="schedules" element={<OfficerSchedules />} />
           <Route path="settings" element={<OfficerSettings />} />
         </Route>
       </Routes>
-    </BrowserRouter>
+      <ToastContainer position="top-right" autoClose={3000} />
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

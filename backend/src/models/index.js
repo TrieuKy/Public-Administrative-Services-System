@@ -7,6 +7,7 @@ const Comment     = require('./Comment');
 const AiLog       = require('./AiLog');
 const Schedule    = require('./Schedule');
 const ApplicationHistory = require('./ApplicationHistory');
+const Post        = require('./Post');
 
 // Quan hệ
 User.hasMany(Application,    { foreignKey: 'userId',    as: 'applications' });
@@ -32,4 +33,7 @@ Application.hasMany(ApplicationHistory, { foreignKey: 'applicationId', as: 'hist
 ApplicationHistory.belongsTo(Application, { foreignKey: 'applicationId' });
 ApplicationHistory.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 
-module.exports = { User, Service, Application, Document, Notification, Comment, AiLog, Schedule, ApplicationHistory };
+Post.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+User.hasMany(Post,   { foreignKey: 'authorId', as: 'posts' });
+
+module.exports = { User, Service, Application, Document, Notification, Comment, AiLog, Schedule, ApplicationHistory, Post };

@@ -4,9 +4,13 @@ const { sequelize } = require('../config/database');
 const Service = sequelize.define('Service', {
   id:             { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
   name:           { type: DataTypes.STRING, allowNull: false },
-  category:       { type: DataTypes.STRING, allowNull: false },
+  category:       { type: DataTypes.STRING, allowNull: false },  // 'individual' | 'business' | 'organization'
   description:    { type: DataTypes.TEXT },
+  agency:         { type: DataTypes.STRING, defaultValue: 'Ủy ban nhân dân cấp xã' },
+  processingTime: { type: DataTypes.STRING, defaultValue: '5 ngày làm việc' }, // hiển thị dạng text
   processingDays: { type: DataTypes.INTEGER, defaultValue: 5 },
+  level:          { type: DataTypes.STRING, defaultValue: 'Mức độ 4' },
+  fee:            { type: DataTypes.STRING, defaultValue: 'Miễn phí' },
   requiredDocs:   { type: DataTypes.JSONB, defaultValue: [] },
   isActive:       { type: DataTypes.BOOLEAN, defaultValue: true },
 }, { tableName: 'services' });

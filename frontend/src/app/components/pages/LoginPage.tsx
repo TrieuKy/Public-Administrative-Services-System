@@ -3,6 +3,8 @@ import { LogIn, User, Lock, Phone, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { useAuth } from '../../../context/AuthContext';
+import { toast } from 'react-toastify';
 // import quochuy from 'figma:asset/0c39003aa259bb6a3d5c50ee4e5afc4504bb9aa4.png';
 const quochuy = ''; // Placeholder for now
 import axiosInstance from '../../../utils/axiosInstance';
@@ -11,6 +13,7 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loginMethod, setLoginMethod] = useState<'account' | 'phone'>('account');
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -20,7 +23,7 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loginMethod !== 'account') {
-      alert("Tính năng Đăng nhập OTP đang được phát triển. Vui lòng chuyển sang dùng Tài Khoản và Mật Khẩu để tiếp tục!");
+      toast.info("Tính năng Đăng nhập OTP đang được phát triển. Vui lòng chuyển sang dùng Tài Khoản và Mật Khẩu để tiếp tục!");
       return;
     }
 
@@ -34,9 +37,11 @@ export function LoginPage() {
       });
       const data = response.data;
       if (data.success && data.data) {
-        localStorage.setItem('token', data.data.accessToken);
-        localStorage.setItem('fullName', data.data.fullName || '');
-        localStorage.setItem('role', data.data.role || 'citizen');
+        login(data.data.accessToken, {
+          fullName: data.data.fullName || '',
+          role: data.data.role || 'citizen',
+          id: data.data.id || ''
+        });
         
         if (data.data.role === 'officer' || data.data.role === 'admin') {
           navigate('/officer/overview');
@@ -167,7 +172,7 @@ export function LoginPage() {
                     placeholder="Nhập mã OTP"
                     className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                   />
-                  <Button type="button" onClick={() => alert("Tính năng Đăng nhập OTP đang được phát triển. Vui lòng nhập Tài Khoản và Mật khẩu ở thẻ bên cạnh.")} variant="outline" className="border-red-700 text-red-700 hover:bg-red-50 whitespace-nowrap">
+                  <Button type="button" onClick={() => toast.info("Tính năng Đăng nhập OTP đang được phát triển.")} variant="outline" className="border-red-700 text-red-700 hover:bg-red-50 whitespace-nowrap">
                     Gửi OTP
                   </Button>
                 </div>

@@ -1,4 +1,4 @@
-const { Application, Document, Service, User, Comment, ApplicationHistory } = require('../models');
+const { Application, Document, Service, User, Comment } = require('../models');
 const { success, error } = require('../utils/response');
 const emailService = require('../services/email.service');
 const { Op } = require('sequelize');
@@ -44,11 +44,11 @@ exports.getApplicationDetail = async (req, res) => {
     if (!app) return error(res, 'Hồ sơ không tồn tại', 404);
 
     // Lấy thêm lịch sử luân chuyển
-    const histories = await ApplicationHistory.findAll({
+    const histories = []; /* await ApplicationHistory.findAll({
       where: { applicationId: app.id },
       include: [{ model: User, as: 'actor', attributes: ['fullName', 'position', 'role'] }],
       order: [['createdAt', 'DESC']]
-    });
+    }); */
 
     const result = app.toJSON();
     result.histories = histories;
@@ -72,12 +72,12 @@ exports.approveApplication = async (req, res) => {
       officerNote: req.body.note, completedAt: new Date()
     });
 
-    await ApplicationHistory.create({
+    /* await ApplicationHistory.create({
       applicationId: app.id,
       actorId: req.user.id,
       action: 'Duyệt hồ sơ',
       note: req.body.note || 'Hồ sơ đủ điều kiện và được duyệt'
-    });
+    }); */
 
     await emailService.sendStatusUpdate(app.citizen.email, app.applicationCode, 'COMPLETED', req.body.note);
 
@@ -99,12 +99,12 @@ exports.rejectApplication = async (req, res) => {
     const fullReason = legalBasis ? `${reason} (Căn cứ: ${legalBasis})` : reason;
     await app.update({ status: 'REJECTED', officerId: req.user.id, rejectReason: fullReason });
     
-    await ApplicationHistory.create({
+    /* await ApplicationHistory.create({
       applicationId: app.id,
       actorId: req.user.id,
       action: 'Từ chối hồ sơ',
       note: fullReason
-    });
+    }); */
 
     await emailService.sendStatusUpdate(app.citizen.email, app.applicationCode, 'REJECTED', fullReason);
 
@@ -125,12 +125,12 @@ exports.requestSupplement = async (req, res) => {
     
     const supplementNote = `Cần bổ sung: ${requiredDocs?.join(', ')}. ${note || ''}`;
 
-    await ApplicationHistory.create({
+    /* await ApplicationHistory.create({
       applicationId: app.id,
       actorId: req.user.id,
       action: 'Yêu cầu bổ sung',
       note: supplementNote
-    });
+    }); */
 
     await emailService.sendStatusUpdate(
       app.citizen.email, app.applicationCode, 'NEED_MORE',

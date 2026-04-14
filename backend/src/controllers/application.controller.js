@@ -234,3 +234,23 @@ exports.rateApplication = async (req, res) => {
     return success(res, { message: 'Cảm ơn bạn đã đánh giá dịch vụ!' });
   } catch (err) { return error(res, err.message, 500); }
 };
+
+// UC: Tra cứu công khai hồ sơ
+exports.searchByCode = async (req, res) => {
+  try {
+    const { code } = req.query;
+    if (!code) return error(res, 'Vui lòng cung cấp mã hồ sơ', 400);
+
+    const app = await Application.findOne({
+      where: { applicationCode: code },
+      include: [
+        { model: Service, as: 'service', attributes: ['name'] },
+        { model: User, as: 'officer', attributes: ['fullName'] }
+      ]
+    });
+
+    if (!app) return error(res, 'Không tìm thấy hồ sơ', 404);
+
+    return success(res, app);
+  } catch (err) { return error(res, err.message, 500); }
+};

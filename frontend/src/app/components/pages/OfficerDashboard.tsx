@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';
+import { toast } from 'react-toastify';
 import { Card } from '../ui/card';
 import axiosInstance from '../../../utils/axiosInstance';
 
@@ -401,10 +402,10 @@ export function OfficerDashboard() {
                       onClick={async () => {
                         try {
                           await axiosInstance.patch(`/officer/applications/${selectedApplication.id}/approve`, { note: 'Duyệt thành công' });
-                          alert('Đã duyệt hồ sơ!');
+                          toast.success('Đã duyệt hồ sơ!');
                           setSelectedApplication(null);
                           fetchApplications();
-                        } catch (e: any) { alert(e.response?.data?.message || 'Có lỗi xảy ra'); }
+                        } catch (e: any) { toast.error(e.response?.data?.message || 'Có lỗi xảy ra'); }
                       }}
                       className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                     >
@@ -418,10 +419,10 @@ export function OfficerDashboard() {
                         if (!note) return;
                         try {
                           await axiosInstance.patch(`/officer/applications/${selectedApplication.id}/request-supplement`, { requiredDocs: [note] });
-                          alert('Đã gửi yêu cầu bổ sung!');
+                          toast.success('Đã gửi yêu cầu bổ sung!');
                           setSelectedApplication(null);
                           fetchApplications();
-                        } catch (e: any) { alert(e.response?.data?.message || 'Có lỗi xảy ra'); }
+                        } catch (e: any) { toast.error(e.response?.data?.message || 'Có lỗi xảy ra'); }
                       }}
                       className="flex-1 border-orange-600 text-orange-600 hover:bg-orange-50"
                     >
@@ -435,10 +436,10 @@ export function OfficerDashboard() {
                         if (!reason) return;
                         try {
                           await axiosInstance.patch(`/officer/applications/${selectedApplication.id}/reject`, { reason });
-                          alert('Đã từ chối!');
+                          toast.success('Đã từ chối!');
                           setSelectedApplication(null);
                           fetchApplications();
-                        } catch (e: any) { alert(e.response?.data?.message || 'Có lỗi xảy ra'); }
+                        } catch (e: any) { toast.error(e.response?.data?.message || 'Có lỗi xảy ra'); }
                       }}
                       className="flex-1 border-red-600 text-red-600 hover:bg-red-50"
                     >

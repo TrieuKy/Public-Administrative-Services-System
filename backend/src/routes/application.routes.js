@@ -7,6 +7,7 @@ const upload   = require('../middlewares/upload.middleware');
 
 router.get('/',              auth, role('citizen'), ctrl.getMyApplications);
 router.post('/',             auth, role('citizen'), ctrl.createApplication);
+router.get('/search',        ctrl.searchByCode);
 router.get('/:id',           auth, role('citizen'), ctrl.getApplicationDetail);
 router.post('/:id/documents',auth, role('citizen'), upload.single('file'), ctrl.uploadDocument);
 router.post('/:id/submit',   auth, role('citizen'), ctrl.submitApplication);

@@ -1,14 +1,17 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FileText, BarChart3, Calendar, Settings, Home, LogOut, Shield } from 'lucide-react';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, FileText, BarChart3, Calendar, Settings, Home, LogOut, Shield, Newspaper, LayoutList } from 'lucide-react';
 import { User } from 'lucide-react';
 
 export function OfficerLayout() {
   const location = useLocation();
   const currentPath = location.pathname;
+  const navigate = useNavigate();
 
   const menuItems = [
     { path: '/officer/overview', name: 'Tổng quan', icon: <LayoutDashboard size={20} /> },
     { path: '/officer/applications', name: 'Quản lý hồ sơ', icon: <FileText size={20} /> },
+    { path: '/officer/posts', name: 'Quản lý bài đăng', icon: <Newspaper size={20} /> },
+    { path: '/officer/services', name: 'Quản lý dịch vụ', icon: <LayoutList size={20} /> },
     { path: '/officer/reports', name: 'Báo cáo & Thống kê', icon: <BarChart3 size={20} /> },
     { path: '/officer/schedules', name: 'Lịch công tác', icon: <Calendar size={20} /> },
     { path: '/officer/settings', name: 'Cài đặt', icon: <Settings size={20} /> },
@@ -24,7 +27,7 @@ export function OfficerLayout() {
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 flex flex-col bg-[#a10e13] text-white"> {/* using a flat deep red, or gradient from-red-900 to-red-800 */}
+      <aside className="w-64 flex flex-col bg-[#a10e13] text-white">
         
         {/* Logo Area */}
         <div className="p-4 border-b border-red-800 flex items-center gap-3">
@@ -65,9 +68,6 @@ export function OfficerLayout() {
                 >
                   {item.icon}
                   <span className="text-sm">{item.name}</span>
-                  {isActive && item.name === 'Quản lý hồ sơ' && (
-                     <span className="ml-auto bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">3</span>
-                  )}
                 </Link>
               );
             })}
@@ -106,8 +106,14 @@ export function OfficerLayout() {
                {menuItems.find(i => currentPath.startsWith(i.path))?.name || 'Dashboard'}
              </span>
            </div>
-           <select className="bg-gray-100 border-none text-sm rounded-md py-1 px-3 outline-none text-gray-600 hidden md:block">
-              <option>Dịch vụ công trực tuyến Website</option>
+           <select
+             className="bg-gray-100 border-none text-sm rounded-md py-1 px-3 outline-none text-gray-600 hidden md:block cursor-pointer"
+             onChange={e => { if (e.target.value) navigate(e.target.value); }}
+             value=""
+           >
+             <option value="" disabled>Dịch vụ công trực tuyến Website</option>
+             <option value="/officer/posts">📰 Quản lý bài đăng</option>
+             <option value="/officer/services">📋 Quản lý danh mục dịch vụ</option>
            </select>
            <div className="flex items-center gap-4">
               <button className="text-gray-400 hover:text-gray-600 relative">
@@ -119,7 +125,7 @@ export function OfficerLayout() {
                    {localStorage.getItem('fullName')?.charAt(0) || 'U'}
                  </div>
                  <div className="hidden md:block">
-                   <p className="text-sm font-semibold text-gray-700 leading-tight">{localStorage.getItem('fullName') || 'Cán bộ Nguyễn'}</p>
+                   <p className="text-sm font-semibold text-gray-700 leading-tight">{localStorage.getItem('fullName') || 'Cán bộ'}</p>
                    <p className="text-xs text-gray-500">Cán bộ</p>
                  </div>
               </div>

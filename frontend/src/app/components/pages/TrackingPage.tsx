@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { ApplicationDetailModal } from './ApplicationDetailModal';
 import axiosInstance from '../../../utils/axiosInstance';
+import { toast } from 'react-toastify';
 
 export function TrackingPage() {
   const [searchCode, setSearchCode] = useState('');
@@ -29,17 +30,11 @@ export function TrackingPage() {
     if (!code) { setSearchResult(null); return; }
     
     setIsSearching(true);
-    const found = myApplications.find(item => item.applicationCode === code);
-    
-    if (found) {
-       try {
-         const detailRes = await axiosInstance.get(`/applications/${found.id}`);
-         setSearchResult(detailRes.data.data);
-       } catch(err) {
-         setSearchResult(found); // fallback
-       }
-    } else {
-       setSearchResult(null);
+    try {
+      const res = await axiosInstance.get(`/applications/search?code=${code}`);
+      setSearchResult(res.data.data);
+    } catch(err) {
+      setSearchResult(null);
     }
     setIsRatingSubmitted(false);
     setIsSearching(false);
@@ -48,12 +43,12 @@ export function TrackingPage() {
   const submitRating = async () => {
     try {
       await axiosInstance.post(`/applications/${searchResult.id}/rate`, { rating: ratingVal, feedback });
-      alert('Cảm ơn bạn đã gửi đánh giá!');
+      toast.success('Cảm ơn bạn đã gửi đánh giá!');
       setIsRatingSubmitted(true);
       // Cập nhật local
       setSearchResult({...searchResult, rating: ratingVal, ratingContent: feedback});
     } catch(err: any) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra');
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra');
     }
   };
 

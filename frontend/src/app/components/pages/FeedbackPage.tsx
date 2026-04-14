@@ -3,6 +3,8 @@ import { ArrowLeft, Send, MessageSquare, AlertCircle, CheckCircle, FileText } fr
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import axiosInstance from '../../../utils/axiosInstance';
+import { toast } from 'react-toastify';
 
 export function FeedbackPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -12,13 +14,22 @@ export function FeedbackPage() {
     content: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title || !formData.content) return alert("Vui lòng điền đầy đủ tiêu đề và nội dung.");
-    // Giả lập lưu
-    setTimeout(() => {
+    if (!formData.title || !formData.content) return toast.warn("Vui lòng điền đầy đủ tiêu đề và nội dung.");
+    
+    try {
+      await axiosInstance.post('/feedback', {
+        title: formData.title,
+        topic: formData.category,
+        content: formData.content,
+        isAnonymous: false // Có thể mở rộng để chọn ẩn danh
+      });
       setIsSubmitted(true);
-    }, 800);
+      toast.success("Gửi phản ánh thành công!");
+    } catch(err: any) {
+      toast.error("Lỗi khi gửi phản ánh: " + err.response?.data?.message || err.message);
+    }
   };
 
   return (

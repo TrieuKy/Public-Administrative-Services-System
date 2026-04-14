@@ -3,6 +3,7 @@ import { Upload, FileText, CheckCircle, XCircle, AlertCircle, ArrowRight, Home, 
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { toast } from 'react-toastify';
 import axiosInstance from '../../../utils/axiosInstance';
 
 interface DocumentCheck {
@@ -14,31 +15,52 @@ interface DocumentCheck {
 interface ServiceObj {
   id: string;
   name: string;
+  category: string;
+  agency: string;
+  processingTime: string;
+  level: string;
+  fee: string;
   requiredDocs: string[];
 }
+
+const CATEGORIES = [
+  { value: 'individual',   label: 'Công dân' },
+  { value: 'business',     label: 'Hộ kinh doanh' },
+  { value: 'organization', label: 'Tổ chức' },
+];
 
 export function ServiceFormPage() {
   const [services, setServices] = useState<ServiceObj[]>([]);
   const [selectedService, setSelectedService] = useState<string>('');
+  const [activeCategory, setActiveCategory] = useState<string>('individual');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [aiCheckResult, setAiCheckResult] = useState<DocumentCheck[] | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    fullName: '', idNumber: '', phone: '', email: ''
-  });
+  const [formData, setFormData] = useState({ fullName: '', idNumber: '', phone: '', email: '' });
   const navigate = useNavigate();
 
   useEffect(() => {
-    axiosInstance.get('/services')
+    axiosInstance.get('/services?limit=100')
       .then(res => {
         const s = res.data?.data?.services || [];
         setServices(s);
-        if (s.length > 0) setSelectedService(s[0].id);
+        const firstIndividual = s.find((sv: ServiceObj) => sv.category === 'individual');
+        if (firstIndividual) setSelectedService(firstIndividual.id);
+        else if (s.length > 0) setSelectedService(s[0].id);
       })
       .catch(err => console.error(err));
   }, []);
+
+  const handleCategoryChange = (cat: string) => {
+    setActiveCategory(cat);
+    const first = services.find(s => s.category === cat);
+    if (first) {
+      setSelectedService(first.id);
+      setUploadedFiles([]);
+      setAiCheckResult(null);
+    }
+  };
 
   const handleSubmitData = async (isDraft = false) => {
     if (isSubmitting) return;
@@ -67,11 +89,11 @@ export function ServiceFormPage() {
         await axiosInstance.post(`/applications/${appId}/submit`);
       }
 
-      alert(isDraft ? 'Lưu nháp thành công!' : 'Nộp hồ sơ thành công!');
+      toast.success(isDraft ? 'Lưu nháp thành công!' : 'Nộp hồ sơ thành công!');
       navigate('/profile');
     } catch (err: any) {
       console.error(err);
-      alert('Có lỗi xảy ra: ' + (err.response?.data?.message || err.message));
+      toast.error('Có lỗi xảy ra: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsSubmitting(false);
     }
@@ -152,8 +174,32 @@ export function ServiceFormPage() {
         {/* Service Selection */}
         <Card className="p-6 mb-6">
           <h2 className="text-xl font-bold text-red-800 mb-4">Chọn dịch vụ công</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {services.map(service => (
+
+          {/* Category Tabs */}
+          <div className="flex gap-2 mb-5 border-b border-gray-200">
+            {CATEGORIES.map(cat => (
+              <button
+                key={cat.value}
+                onClick={() => handleCategoryChange(cat.value)}
+                className={`px-5 py-2.5 text-sm font-medium rounded-t-lg -mb-px border-b-2 transition ${
+                  activeCategory === cat.value
+                    ? 'border-red-700 text-red-700 bg-red-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                {cat.label}
+                <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
+                  activeCategory === cat.value ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {services.filter(s => s.category === cat.value).length}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Services in selected category */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {services.filter(s => s.category === activeCategory).map(service => (
               <button
                 key={service.id}
                 onClick={() => {
@@ -161,15 +207,33 @@ export function ServiceFormPage() {
                   setUploadedFiles([]);
                   setAiCheckResult(null);
                 }}
-                className={`p-4 rounded-lg border-2 transition text-left ${
+                className={`p-4 rounded-xl border-2 transition text-left ${
                   selectedService === service.id
-                    ? 'border-red-700 bg-red-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-red-700 bg-red-50 shadow-sm'
+                    : 'border-gray-200 hover:border-red-300 hover:bg-gray-50'
                 }`}
               >
-                <div className="font-medium text-gray-900">{service.name}</div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-medium text-gray-900">{service.name}</div>
+                  {selectedService === service.id && (
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-red-700 flex items-center justify-center">
+                      <CheckCircle size={12} className="text-white" />
+                    </span>
+                  )}
+                </div>
+                {service.agency && (
+                  <div className="text-xs text-gray-500 mt-1">{service.agency}</div>
+                )}
+                {service.processingTime && (
+                  <div className="text-xs text-gray-500 mt-0.5">⏱ {service.processingTime} &nbsp;·&nbsp; {service.fee}</div>
+                )}
               </button>
             ))}
+            {services.filter(s => s.category === activeCategory).length === 0 && (
+              <div className="col-span-2 py-8 text-center text-gray-400 text-sm">
+                Không có dịch vụ nào trong nhóm này.
+              </div>
+            )}
           </div>
         </Card>
 
@@ -268,7 +332,7 @@ export function ServiceFormPage() {
                     <span className="text-blue-600 mt-0.5">•</span>
                     <span className="flex-1">{doc}</span>
                     {isForm && (
-                      <a href="#" onClick={(e) => { e.preventDefault(); alert('Xin lỗi, file biểu mẫu đang được bổ sung!'); }} className="flex items-center gap-1 text-xs bg-white px-2 py-1 rounded border border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition">
+                      <a href="#" onClick={(e) => { e.preventDefault(); toast.info('Xin lỗi, file biểu mẫu đang được bổ sung!'); }} className="flex items-center gap-1 text-xs bg-white px-2 py-1 rounded border border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition">
                         <Download size={14} />
                         Tải biểu mẫu
                       </a>

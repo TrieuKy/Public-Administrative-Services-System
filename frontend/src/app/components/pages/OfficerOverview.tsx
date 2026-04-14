@@ -73,7 +73,7 @@ export function OfficerOverview() {
         <div>
            <h2 className="text-2xl font-bold mb-1">Xin chào, {localStorage.getItem('fullName')}!</h2>
            <p className="text-red-100 text-sm mb-2">{new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-           <p className="text-sm">Hôm nay có <span className="font-bold underline">3 hồ sơ khẩn</span> đang chờ xử lý.</p>
+           <p className="text-sm">Hôm nay có <span className="font-bold underline">{stats.pending} hồ sơ</span> đang chờ xử lý.</p>
         </div>
         <Link to="/officer/applications" className="bg-white/20 hover:bg-white/30 transition text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 backdrop-blur-sm border border-white/30">
           Xem hồ sơ <ArrowRight size={16} />
@@ -83,8 +83,8 @@ export function OfficerOverview() {
       {/* Grid Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
-          { label: 'Hồ sơ nhận hôm nay', value: stats.todayTotal, icon: <FileText size={24} className="text-blue-500"/>, sub: '+3 so với hôm qua' },
-          { label: 'Chờ xử lý', value: stats.pending, icon: <Clock size={24} className="text-orange-500"/>, sub: '2 hồ sơ khẩn' },
+          { label: 'Hồ sơ nhận hôm nay', value: stats.todayTotal, icon: <FileText size={24} className="text-blue-500"/>, sub: 'Tổng hồ sơ nhận được' },
+          { label: 'Chờ xử lý', value: stats.pending, icon: <Clock size={24} className="text-orange-500"/>, sub: stats.pending > 0 ? `${stats.pending} hồ sơ đang chờ` : 'Không có hồ sơ chờ' },
           { label: 'Đang xử lý', value: stats.processing, icon: <Activity size={24} className="text-yellow-600"/>, sub: 'Dự kiến xong hôm nay' },
           { label: 'Hoàn thành', value: stats.completed, icon: <CheckCircle size={24} className="text-green-500"/>, sub: `Tỷ lệ: ${stats.completionRate}%` },
         ].map((s, i) => (
