@@ -12,4 +12,6 @@ router.patch('/applications/:id/reject',          ctrl.rejectApplication);
 router.patch('/applications/:id/request-supplement', ctrl.requestSupplement);
 router.post('/applications/:id/notes',            ctrl.addNote);
 
+router.get('/reviews',                            ctrl.getReviews);
+
 module.exports = router;

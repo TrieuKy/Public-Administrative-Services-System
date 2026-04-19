@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, BarChart3, Calendar, Settings, Home, LogOut, Shield, Newspaper, LayoutList, Bell, ChevronDown, User, KeyRound, X } from 'lucide-react';
+import { LayoutDashboard, FileText, BarChart3, Calendar, Settings, Home, LogOut, Shield, Newspaper, LayoutList, Bell, ChevronDown, User, KeyRound, X, Star } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 export function OfficerLayout() {
@@ -27,6 +27,7 @@ export function OfficerLayout() {
     { path: '/officer/applications',  name: 'Quản lý hồ sơ',       icon: <FileText size={20} /> },
     { path: '/officer/posts',         name: 'Quản lý bài đăng',    icon: <Newspaper size={20} /> },
     { path: '/officer/services',      name: 'Quản lý dịch vụ',     icon: <LayoutList size={20} /> },
+    { path: '/officer/reviews',       name: 'Đánh giá hài lòng',   icon: <Star size={20} /> },
     { path: '/officer/reports',       name: 'Báo cáo & Thống kê',  icon: <BarChart3 size={20} /> },
     { path: '/officer/schedules',     name: 'Lịch công tác',       icon: <Calendar size={20} /> },
     { path: '/officer/settings',      name: 'Cài đặt',             icon: <Settings size={20} /> },

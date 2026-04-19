@@ -8,6 +8,7 @@ export function Header() {
   const { user, logout } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
+  const [logoError, setLogoError] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -19,6 +20,17 @@ export function Header() {
     logout();
   };
 
+  // Helper: check if a nav link is currently active
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
+
+  // Nav link base classes
+  const navBase = 'px-4 py-2 rounded transition text-sm font-medium whitespace-nowrap';
+  const navActive = 'bg-orange-500 text-white';
+  const navInactive = 'text-gray-700 hover:bg-orange-50 hover:text-orange-700 border border-transparent hover:border-orange-200';
+
   return (
     <header className="bg-white sticky top-0 z-50 shadow-sm">
       {/* Main header */}
@@ -26,15 +38,19 @@ export function Header() {
         <div className="flex items-center justify-between h-24 border-b border-gray-200">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-4">
-            <img
-              src="/logo.png"
-              alt="Logo Cổng Dịch vụ công"
-              className="w-14 h-14 object-contain"
-              onError={(e) => {
-                // Fallback: hiển thị chữ nếu chưa có file logo
-                e.currentTarget.style.display = 'none';
-              }}
-            />
+            {!logoError ? (
+              <img
+                src="/logo.png"
+                alt="Logo Cổng Dịch vụ công"
+                className="w-14 h-14 object-contain"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              /* Fallback logo khi không có file */
+              <div className="w-14 h-14 rounded-full bg-red-700 flex items-center justify-center text-white font-bold text-xl select-none">
+                DVC
+              </div>
+            )}
             <div>
               <div className="text-red-700 text-xl tracking-tight font-bold" style={{ fontFamily: 'serif' }}>
                 CỔNG DỊCH VỤ CÔNG CẤP XÃ/PHƯỜNG
@@ -114,32 +130,36 @@ export function Header() {
           <div className="flex items-center gap-1">
             <Link
               to="/"
-              className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition whitespace-nowrap"
+              className={`${navBase} flex items-center gap-2 ${isActive('/') ? navActive : navInactive}`}
             >
               <Home size={18} />
-              <span className="text-sm">Thông tin và dịch vụ</span>
+              <span>Thông tin và dịch vụ</span>
             </Link>
+
             <Link
               to="/payment"
-              className="px-4 py-2 text-gray-700 hover:bg-orange-50 hover:text-orange-700 rounded transition font-medium text-sm whitespace-nowrap border border-transparent hover:border-orange-200"
+              className={`${navBase} ${isActive('/payment') ? navActive : navInactive}`}
             >
               Thanh toán trực tuyến
             </Link>
+
             <Link
               to="/service-form"
-              className="bg-[#cc6633] text-white px-4 py-2 rounded font-medium hover:bg-[#b55a2d] transition text-sm whitespace-nowrap"
+              className={`${navBase} ${isActive('/service-form') ? navActive : navInactive}`}
             >
               Nộp hồ sơ trực tuyến
             </Link>
+
             <Link
               to="/feedback"
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition text-sm whitespace-nowrap"
+              className={`${navBase} ${isActive('/feedback') ? navActive : navInactive}`}
             >
               Phản ánh &amp; Kiến nghị
             </Link>
+
             <Link
               to="/tracking"
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition text-sm whitespace-nowrap"
+              className={`${navBase} ${isActive('/tracking') ? navActive : navInactive}`}
             >
               Tra cứu hồ sơ
             </Link>
@@ -148,7 +168,7 @@ export function Header() {
             <div className="relative">
               <button
                 onClick={() => setIsSupportOpen(!isSupportOpen)}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition text-sm whitespace-nowrap"
+                className={`${navBase} ${isSupportOpen ? 'bg-orange-50 text-orange-700' : 'text-gray-700 hover:bg-gray-100'}`}
               >
                 Hỗ trợ
               </button>

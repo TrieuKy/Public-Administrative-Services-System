@@ -25,6 +25,8 @@ import { OfficerSettings } from './components/pages/OfficerSettings';
 import { OfficerSchedules } from './components/pages/OfficerSchedules';
 import { OfficerPostsPage } from './components/pages/OfficerPostsPage';
 import { OfficerServicesPage } from './components/pages/OfficerServicesPage';
+import { OfficerReviews } from './components/pages/OfficerReviews';
+import { VerifyEmailPage } from './components/pages/VerifyEmailPage';
 
 function HomePage() {
   return (
@@ -70,6 +72,7 @@ function AppContent() {
         <Route path="/service-form" element={<ProtectedRoute><ServiceFormPage /></ProtectedRoute>} />
         <Route path="/tracking" element={<TrackingPage />} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/payment" element={<PaymentPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
         
@@ -79,6 +82,7 @@ function AppContent() {
           <Route path="applications" element={<OfficerApplications />} />
           <Route path="posts" element={<OfficerPostsPage />} />
           <Route path="services" element={<OfficerServicesPage />} />
+          <Route path="reviews" element={<OfficerReviews />} />
           <Route path="reports" element={<OfficerReports />} />
           <Route path="schedules" element={<OfficerSchedules />} />
           <Route path="settings" element={<OfficerSettings />} />

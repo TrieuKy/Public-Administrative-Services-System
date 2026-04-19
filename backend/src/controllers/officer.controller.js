@@ -1,4 +1,4 @@
-const { Application, Document, Service, User, Comment } = require('../models');
+const { Application, Document, Service, User, Comment, ApplicationHistory } = require('../models');
 const { success, error } = require('../utils/response');
 const emailService = require('../services/email.service');
 const { Op } = require('sequelize');
@@ -72,12 +72,12 @@ exports.approveApplication = async (req, res) => {
       officerNote: req.body.note, completedAt: new Date()
     });
 
-    /* await ApplicationHistory.create({
+    await ApplicationHistory.create({
       applicationId: app.id,
       actorId: req.user.id,
       action: 'Duyệt hồ sơ',
       note: req.body.note || 'Hồ sơ đủ điều kiện và được duyệt'
-    }); */
+    });
 
     await emailService.sendStatusUpdate(app.citizen.email, app.applicationCode, 'COMPLETED', req.body.note);
 
@@ -99,12 +99,12 @@ exports.rejectApplication = async (req, res) => {
     const fullReason = legalBasis ? `${reason} (Căn cứ: ${legalBasis})` : reason;
     await app.update({ status: 'REJECTED', officerId: req.user.id, rejectReason: fullReason });
     
-    /* await ApplicationHistory.create({
+    await ApplicationHistory.create({
       applicationId: app.id,
       actorId: req.user.id,
       action: 'Từ chối hồ sơ',
       note: fullReason
-    }); */
+    });
 
     await emailService.sendStatusUpdate(app.citizen.email, app.applicationCode, 'REJECTED', fullReason);
 
@@ -125,12 +125,12 @@ exports.requestSupplement = async (req, res) => {
     
     const supplementNote = `Cần bổ sung: ${requiredDocs?.join(', ')}. ${note || ''}`;
 
-    /* await ApplicationHistory.create({
+    await ApplicationHistory.create({
       applicationId: app.id,
       actorId: req.user.id,
       action: 'Yêu cầu bổ sung',
       note: supplementNote
-    }); */
+    });
 
     await emailService.sendStatusUpdate(
       app.citizen.email, app.applicationCode, 'NEED_MORE',
@@ -154,5 +154,38 @@ exports.addNote = async (req, res) => {
       applicationId: app.id, authorId: req.user.id, content, type
     });
     return success(res, { noteId: comment.id, createdAt: comment.createdAt }, '', 201);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
+// UC18 — Lấy danh sách đánh giá
+exports.getReviews = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const { rows, count } = await Application.findAndCountAll({
+      where: { rating: { [Op.not]: null } },
+      include: [
+        { model: User, as: 'citizen', attributes: ['fullName', 'email'] },
+        { model: Service, as: 'service', attributes: ['name'] }
+      ],
+      order: [['completedAt', 'DESC']],
+      limit: +limit, offset: (+page - 1) * +limit
+    });
+    
+    // Tính toán thông kê tổng quát
+    const allRated = await Application.findAll({
+      where: { rating: { [Op.not]: null } },
+      attributes: ['rating']
+    });
+    const totalReviews = allRated.length;
+    const averageRating = totalReviews > 0 ? (allRated.reduce((s, a) => s + a.rating, 0) / totalReviews).toFixed(1) : 0;
+    const ratingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    allRated.forEach(a => ratingCounts[a.rating]++);
+
+    return success(res, { 
+      reviews: rows, 
+      total: count, 
+      page: +page,
+      stats: { totalReviews, averageRating, ratingCounts }
+    });
   } catch (err) { return error(res, err.message, 500); }
 };
