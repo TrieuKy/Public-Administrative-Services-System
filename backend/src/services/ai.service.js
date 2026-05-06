@@ -331,6 +331,11 @@ Dựa vào đó, hãy kiểm tra:
 - Nếu người dùng THIẾU loại giấy tờ bắt buộc → thêm MISSING_TYPE vào validationErrors của group liên quan (hoặc tạo group "Thiếu giấy tờ" nếu không có)
 - Nếu người dùng nộp THỪA giấy tờ không liên quan → thêm EXCESS_DOCS vào validationErrors
 - Nếu tất cả loại giấy tờ yêu cầu đã có → không báo lỗi loại này
+
+LƯU Ý ĐẶC BIỆT VỀ CCCD/CMND:
+- Giấy tờ Căn cước công dân / CMND luôn yêu cầu BẮT BUỘC 2 mặt (mặt trước và mặt sau).
+- Việc người dùng nộp 2 ảnh (1 mặt trước, 1 mặt sau) của CÙNG MỘT thẻ là đúng quy định và ĐƯỢC YÊU CẦU.
+- TUYỆT ĐỐI KHÔNG đánh lỗi EXCESS_DOCS (quá nhiều giấy tờ) khi người dùng nộp 2 ảnh cho 2 mặt của một CCCD/CMND. Hãy gom chúng vào chung 1 nhóm (group).
 ` : '';
 
     const pdfNote = hasPDF ? `
@@ -339,6 +344,7 @@ Dựa vào đó, hãy kiểm tra:
 • File scan/PDF thường có chất lượng tốt hơn ảnh chụp — hãy trích xuất đầy đủ tất cả trường.
 • Xác định loại tài liệu trong PDF dựa trên tiêu đề, số hiệu, cơ quan ban hành.
 ` : '';
+
 
     return `Bạn là hệ thống OCR chuyên nghiệp cho tài liệu hành chính Việt Nam.
 Tôi đang gửi ${count} file tài liệu (ảnh hoặc PDF/scan). Hãy phân tích TẤT CẢ ${count} file đó.${svcSection}${pdfNote}

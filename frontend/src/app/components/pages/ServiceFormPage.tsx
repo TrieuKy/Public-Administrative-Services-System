@@ -417,12 +417,21 @@ export function ServiceFormPage() {
                 <FileText size={18} /> Yêu cầu giấy tờ:
               </h3>
               <ul className="space-y-2 text-sm text-blue-800 mt-3">
-                {requiredDocs.map((doc, i) => (
-                  <li key={i} className="flex items-center gap-2">
-                    <span className="text-blue-600 flex-shrink-0">•</span>
-                    <span className="flex-1">{doc}</span>
-                  </li>
-                ))}
+                {requiredDocs.map((doc, i) => {
+                  let docDisplay = doc;
+                  const l = doc.toLowerCase();
+                  if (l.includes('ccđ') || l.includes('căn cước') || l.includes('cmđ') || l.includes('chứng minh')) {
+                    if (!l.includes('2 mặt') && !l.includes('hai mặt')) {
+                      docDisplay = `${doc} (Bắt buộc 2 mặt)`;
+                    }
+                  }
+                  return (
+                    <li key={i} className="flex items-center gap-2">
+                      <span className="text-blue-600 flex-shrink-0">•</span>
+                      <span className="flex-1 font-medium">{docDisplay}</span>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
