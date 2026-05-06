@@ -8,6 +8,7 @@ const AiLog       = require('./AiLog');
 const Schedule    = require('./Schedule');
 const ApplicationHistory = require('./ApplicationHistory');
 const Post        = require('./Post');
+const Payment     = require('./Payment');
 
 // Quan hệ
 User.hasMany(Application,    { foreignKey: 'userId',    as: 'applications' });
@@ -36,4 +37,12 @@ ApplicationHistory.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 Post.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 User.hasMany(Post,   { foreignKey: 'authorId', as: 'posts' });
 
-module.exports = { User, Service, Application, Document, Notification, Comment, AiLog, Schedule, ApplicationHistory, Post };
+Application.hasMany(AiLog,   { foreignKey: 'applicationId', as: 'aiLogs' });
+AiLog.belongsTo(Application, { foreignKey: 'applicationId' });
+
+// Payment associations
+User.hasMany(Payment,        { foreignKey: 'userId', as: 'payments' });
+Payment.belongsTo(User,      { foreignKey: 'userId', as: 'payer' });
+Payment.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
+
+module.exports = { User, Service, Application, Document, Notification, Comment, AiLog, Schedule, ApplicationHistory, Post, Payment };

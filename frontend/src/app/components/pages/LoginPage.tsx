@@ -41,7 +41,7 @@ export function LoginPage() {
           fullName: data.data.fullName || '',
           role: data.data.role || 'citizen',
           id: data.data.id || ''
-        });
+        }, data.data.refreshToken);
         
         if (data.data.role === 'officer' || data.data.role === 'admin') {
           navigate('/officer/overview');

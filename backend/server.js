@@ -1,10 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 
 const routes = require('./src/routes');
 const { sequelize } = require('./src/config/database');
+const authMiddleware = require('./src/middlewares/auth.middleware');
 
 const app = express();
 
@@ -14,7 +17,24 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/v1', routes);
+
+// ── Protected file serving (thay thế express.static không có auth) ──
+// Chỉ user đã đăng nhập mới truy cập được file upload
+app.get('/api/v1/files/:filename', authMiddleware, (req, res) => {
+  const filename = req.params.filename;
+  // Sanitize: chỉ cho phép tên file hợp lệ, không có path traversal
+  if (!/^[\w\-. ]+$/.test(filename)) {
+    return res.status(400).json({ success: false, message: 'Tên file không hợp lệ' });
+  }
+  const filePath = path.join(__dirname, 'uploads', filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ success: false, message: 'File không tồn tại' });
+  }
+  res.sendFile(filePath);
+});
+
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
 
 app.use((err, req, res, next) => {
     console.error(err.stack);

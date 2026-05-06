@@ -1,8 +1,10 @@
 import { MessageCircle, X } from 'lucide-react';
 import { useState } from 'react';
+import axiosInstance from '../../utils/axiosInstance';
 
 export function ChatbotButton() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<{ text: string; sender: 'user' | 'bot' }[]>([
     { text: 'Xin chào! Tôi là trợ lý ảo của Cổng Dịch vụ công. Tôi có thể giúp gì cho bạn?', sender: 'bot' }
   ]);
@@ -15,37 +17,36 @@ export function ChatbotButton() {
     'Dịch vụ chứng thực?'
   ];
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
 
-    // Add user message
-    const newMessages = [...messages, { text: input, sender: 'user' as const }];
+    const userMsg = { text: input, sender: 'user' as const };
+    const newMessages = [...messages, userMsg];
     setMessages(newMessages);
-    
-    // Simulate bot response
-    setTimeout(() => {
-      const botResponse = getBotResponse(input);
-      setMessages([...newMessages, { text: botResponse, sender: 'bot' }]);
-    }, 1000);
-
     setInput('');
-  };
+    setIsLoading(true);
 
-  const getBotResponse = (question: string): string => {
-    const lowerQuestion = question.toLowerCase();
-    
-    if (lowerQuestion.includes('hộ tịch') || lowerQuestion.includes('khai sinh')) {
-      return 'Để đăng ký hộ tịch tại xã/phường, bạn có thể truy cập mục "Dịch vụ công phổ biến" → "Đăng ký hộ tịch". Các dịch vụ bao gồm khai sinh (3 ngày), kết hôn (1 ngày), khai tử (2 ngày). Tất cả đều miễn phí và xử lý trực tuyến tại UBND xã.';
-    } else if (lowerQuestion.includes('tra cứu') || lowerQuestion.includes('hồ sơ')) {
-      return 'Để tra cứu hồ sơ tại xã/phường, bạn vào mục "Tra cứu hồ sơ" trên header và nhập mã hồ sơ hoặc số CMND/CCCD. Hệ thống sẽ hiển thị tình trạng xử lý của hồ sơ tại UBND xã.';
-    } else if (lowerQuestion.includes('doanh nghiệp') || lowerQuestion.includes('kinh doanh')) {
-      return 'Tại xã/phường chỉ xử lý đăng ký hộ kinh doanh (không phải doanh nghiệp). Thủ tục gồm: đăng ký mới (3 ngày, 50k), thay đổi (2 ngày, 30k), tạm ngừng và chấm dứt (1 ngày, miễn phí). Bạn nộp hồ sơ trực tuyến tại UBND xã.';
-    } else if (lowerQuestion.includes('liên hệ') || lowerQuestion.includes('hỗ trợ')) {
-      return 'Bạn có thể liên hệ hỗ trợ qua:\n- Bộ phận một cửa UBND xã: (024) 3825.xxxx\n- Email: ubnd@xa[tenxa].gov.vn\n- Hoặc chat trực tiếp với tôi tại đây!\n- Trực tiếp tại: Trụ sở UBND xã, từ 7h30 - 17h00 các ngày làm việc';
-    } else if (lowerQuestion.includes('chứng thực')) {
-      return 'Chứng thực tại xã/phường gồm:\n- Chứng thực bản sao: 5.000đ/trang, xử lý trong ngày\n- Chứng thực chữ ký: 10.000đ, xử lý trong ngày\nBạn mang theo giấy tờ gốc và CMND/CCCD đến bộ phận một cửa UBND xã.';
-    } else {
-      return 'Cảm ơn câu hỏi của bạn. Vui lòng chọn một trong các câu hỏi nhanh bên dưới hoặc liên hệ bộ phận một cửa UBND xã để được hỗ trợ chi tiết hơn.';
+    try {
+      // Chuyển history sang format Gemini
+      const history = messages.slice(1).map(m => ({
+        role: m.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: m.text }]
+      }));
+
+      const res = await axiosInstance.post('/ai/chat', {
+        message: input,
+        history
+      });
+
+      const botReply = res.data.data.reply;
+      setMessages([...newMessages, { text: botReply, sender: 'bot' }]);
+    } catch {
+      setMessages([...newMessages, {
+        text: 'Xin lỗi, tôi đang gặp sự cố. Vui lòng thử lại hoặc liên hệ trực tiếp UBND xã.',
+        sender: 'bot'
+      }]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -85,16 +86,24 @@ export function ChatbotButton() {
                 className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] p-3 rounded-2xl ${
-                    msg.sender === 'user'
+                  className={`max-w-[80%] p-3 rounded-2xl ${msg.sender === 'user'
                       ? 'bg-amber-500 text-white rounded-br-none'
                       : 'bg-gray-100 text-gray-800 rounded-bl-none'
-                  }`}
+                    }`}
                 >
                   <p className="text-sm leading-relaxed whitespace-pre-line">{msg.text}</p>
                 </div>
               </div>
             ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-gray-100 rounded-2xl px-4 py-2 text-sm text-gray-500 flex items-center gap-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Quick Questions */}
@@ -122,7 +131,7 @@ export function ChatbotButton() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder="Nhập câu hỏi của bạn..."
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
               />
@@ -148,7 +157,7 @@ export function ChatbotButton() {
         ) : (
           <MessageCircle size={28} className="group-hover:animate-bounce" />
         )}
-        
+
         {/* Notification badge */}
         {!isOpen && (
           <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center text-xs font-bold text-gray-900 animate-pulse">
@@ -158,4 +167,4 @@ export function ChatbotButton() {
       </button>
     </>
   );
-}
+}

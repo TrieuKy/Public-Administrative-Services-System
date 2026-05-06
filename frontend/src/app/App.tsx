@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -27,6 +27,9 @@ import { OfficerPostsPage } from './components/pages/OfficerPostsPage';
 import { OfficerServicesPage } from './components/pages/OfficerServicesPage';
 import { OfficerReviews } from './components/pages/OfficerReviews';
 import { VerifyEmailPage } from './components/pages/VerifyEmailPage';
+import { OfficerFeedbacks } from './components/pages/OfficerFeedbacks';
+import { NotFoundPage } from './components/pages/NotFoundPage';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function HomePage() {
   return (
@@ -65,29 +68,35 @@ function AppContent() {
   return (
     <>
       {!isOfficerPage && <Header />}
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/service-form" element={<ProtectedRoute><ServiceFormPage /></ProtectedRoute>} />
-        <Route path="/tracking" element={<TrackingPage />} />
-        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
-        <Route path="/payment" element={<PaymentPage />} />
-        <Route path="/feedback" element={<FeedbackPage />} />
-        
-        {/* Officer/Admin Routes (Nested inside layout) */}
-        <Route path="/officer" element={<OfficerRoute><OfficerLayout /></OfficerRoute>}>
-          <Route path="overview" element={<OfficerOverview />} />
-          <Route path="applications" element={<OfficerApplications />} />
-          <Route path="posts" element={<OfficerPostsPage />} />
-          <Route path="services" element={<OfficerServicesPage />} />
-          <Route path="reviews" element={<OfficerReviews />} />
-          <Route path="reports" element={<OfficerReports />} />
-          <Route path="schedules" element={<OfficerSchedules />} />
-          <Route path="settings" element={<OfficerSettings />} />
-        </Route>
-      </Routes>
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/service-form" element={<ProtectedRoute><ServiceFormPage /></ProtectedRoute>} />
+          <Route path="/tracking" element={<TrackingPage />} />
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/payment" element={<PaymentPage />} />
+          <Route path="/feedback" element={<FeedbackPage />} />
+
+          {/* Officer/Admin Routes (Nested inside layout) */}
+          <Route path="/officer" element={<OfficerRoute><OfficerLayout /></OfficerRoute>}>
+            <Route path="overview" element={<OfficerOverview />} />
+            <Route path="applications" element={<OfficerApplications />} />
+            <Route path="posts" element={<OfficerPostsPage />} />
+            <Route path="services" element={<OfficerServicesPage />} />
+            <Route path="reviews" element={<OfficerReviews />} />
+            <Route path="feedbacks" element={<OfficerFeedbacks />} />
+            <Route path="reports" element={<OfficerReports />} />
+            <Route path="schedules" element={<OfficerSchedules />} />
+            <Route path="settings" element={<OfficerSettings />} />
+          </Route>
+
+          {/* Catch-all: 404 */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </ErrorBoundary>
       <ToastContainer position="top-right" autoClose={3000} />
     </>
   );

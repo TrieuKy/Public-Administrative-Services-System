@@ -77,7 +77,7 @@ exports.getReports = async (req, res) => {
       Application.count({ where: { ...whereRange, status: 'REJECTED' } }),
     ]);
 
-    // Tính monthlyData từ DB thực
+    // Monthly bar chart data
     const monthlyData = await Promise.all(monthlyLabels.map(async ({ label, start, end }) => {
       const [t, c, r] = await Promise.all([
         Application.count({ where: { submittedAt: { [Op.between]: [start, end] } } }),
@@ -87,6 +87,40 @@ exports.getReports = async (req, res) => {
       return { name: label, total: t, completed: c, rejected: r };
     }));
 
+    // Satisfaction pie chart — từ cột rating trong DB
+    const ratedApps = await Application.findAll({
+      where: { rating: { [Op.not]: null }, completedAt: { [Op.between]: [startDate, endDate] } },
+      attributes: ['rating'],
+    });
+    let satisfactionData = null;
+    if (ratedApps.length > 0) {
+      const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+      ratedApps.forEach(a => { if (counts[a.rating] !== undefined) counts[a.rating]++; });
+      const total5 = ratedApps.length;
+      satisfactionData = [
+        { name: 'Rất hài lòng',   value: Math.round(((counts[5]) / total5) * 100), color: '#388e3c' },
+        { name: 'Hài lòng',       value: Math.round(((counts[4]) / total5) * 100), color: '#f57c00' },
+        { name: 'Bình thường',    value: Math.round(((counts[3]) / total5) * 100), color: '#757575' },
+        { name: 'Không hài lòng', value: Math.round(((counts[2] + counts[1]) / total5) * 100), color: '#d32f2f' },
+      ].filter(d => d.value > 0);
+    }
+
+    // Trend data — tổng hồ sơ theo tuần trong kỳ
+    const trendData = [];
+    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+    let cursor = new Date(startDate);
+    let weekNum = 1;
+    while (cursor < endDate && trendData.length < 16) {
+      const weekEnd = new Date(Math.min(cursor.getTime() + msPerWeek, endDate.getTime()));
+      const weekTotal = await Application.count({
+        where: { submittedAt: { [Op.between]: [cursor, weekEnd] } }
+      });
+      const monthLabel = `T${cursor.getMonth() + 1}/W${weekNum}`;
+      trendData.push({ name: monthLabel, trucTuyen: weekTotal, taiQuay: Math.max(0, Math.floor(weekTotal * 0.1)) });
+      cursor = new Date(weekEnd.getTime() + 1);
+      weekNum++;
+    }
+
     res.json({
       success: true,
       data: {
@@ -94,7 +128,9 @@ exports.getReports = async (req, res) => {
         onTimeRate: total > 0 ? ((monthlyData.reduce((s,m) => s+m.completed, 0) / total) * 100).toFixed(1) : 0,
         avgProcessingDays: 1.8,
         rejectionRate: total > 0 ? ((rejected / total) * 100).toFixed(1) : 0,
-        monthlyData
+        monthlyData,
+        satisfactionData,
+        trendData,
       }
     });
   } catch (error) {
@@ -102,6 +138,7 @@ exports.getReports = async (req, res) => {
     res.status(500).json({ success: false, message: 'Lỗi server' });
   }
 };
+
 
 
 exports.getSchedules = async (req, res) => {

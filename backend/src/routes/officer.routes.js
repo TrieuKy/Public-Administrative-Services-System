@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const ctrl   = require('../controllers/officer.controller');
+const feedbackCtrl = require('../controllers/feedback.controller');
 const auth   = require('../middlewares/auth.middleware');
 const role   = require('../middlewares/role.middleware');
 
@@ -14,4 +15,8 @@ router.post('/applications/:id/notes',            ctrl.addNote);
 
 router.get('/reviews',                            ctrl.getReviews);
 
-module.exports = router;
+// Phản ánh kiến nghị
+router.get('/feedbacks',                          feedbackCtrl.getFeedbacks);
+router.patch('/feedbacks/:id/status',             feedbackCtrl.updateFeedbackStatus);
+
+module.exports = router;

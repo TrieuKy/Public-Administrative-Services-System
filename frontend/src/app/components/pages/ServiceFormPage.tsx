@@ -1,14 +1,32 @@
-import { useState, useEffect } from 'react';
-import { Upload, FileText, CheckCircle, XCircle, AlertCircle, ArrowRight, Home, ArrowLeft, Download } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import {
+  Upload, FileText, CheckCircle, XCircle, AlertCircle,
+  ArrowRight, Home, ArrowLeft, Loader2, Key, RefreshCw,
+  LayersIcon, ChevronDown, ChevronUp,
+} from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { toast } from 'react-toastify';
 import axiosInstance from '../../../utils/axiosInstance';
 
-interface DocumentCheck {
-  name: string;
-  status: 'valid' | 'invalid' | 'missing';
+// ── Types ─────────────────────────────────────────────────────────────────
+interface UploadedFileEntry {
+  file: File;
+  docType: string;
+}
+
+interface DocGroup {
+  groupLabel: string;
+  docCategory: string;
+  imageIndexes: number[];
+  files: { index: number; fileName: string }[];
+  isValid: boolean;
+  isReadable: boolean;
+  extractedFields: Record<string, any>;
+  validationErrors: string[];
+  warningLevel: 'ok' | 'warning' | 'error';
+  issues: string[];
   message: string;
 }
 
@@ -23,130 +41,287 @@ interface ServiceObj {
   requiredDocs: string[];
 }
 
+// ── Constants ──────────────────────────────────────────────────────────────
 const CATEGORIES = [
   { value: 'individual',   label: 'Công dân' },
   { value: 'business',     label: 'Hộ kinh doanh' },
   { value: 'organization', label: 'Tổ chức' },
 ];
 
+const CAT_ICON: Record<string, string> = {
+  cccd: '🪪',
+  ho_khau: '🏠',
+  giay_khai_sinh: '👶',
+  giay_ket_hon: '💍',
+  giay_phep_kinh_doanh: '🏢',
+  bang_lai_xe: '🚗',
+  khac: '📄',
+};
+
+// ── Component ──────────────────────────────────────────────────────────────
 export function ServiceFormPage() {
   const [services, setServices] = useState<ServiceObj[]>([]);
   const [selectedService, setSelectedService] = useState<string>('');
   const [activeCategory, setActiveCategory] = useState<string>('individual');
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [aiCheckResult, setAiCheckResult] = useState<DocumentCheck[] | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
+  const [fileEntries, setFileEntries] = useState<UploadedFileEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({ fullName: '', idNumber: '', phone: '', email: '' });
-  const navigate = useNavigate();
 
+  // AI states
+  const [apiKey, setApiKey]           = useState('');
+  const [isSettingKey, setIsSettingKey] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [hasAnalyzed, setHasAnalyzed] = useState(false);
+  const [docGroups, setDocGroups]     = useState<DocGroup[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<Record<number, boolean>>({});
+
+  // Form fields contact — email không auto-fill
+  const [formFields, setFormFields] = useState<Record<string, string>>({
+    fullName: '', idNumber: '', phone: '', email: '',
+  });
+  // Fields trích xuất theo nhóm giấy tờ (có thể edit)
+  const [groupFields, setGroupFields] = useState<Record<number, Record<string, string>>>({});
+  const [expandedInfoGroups, setExpandedInfoGroups] = useState<Record<number, boolean>>({});
+
+  const navigate     = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load services
   useEffect(() => {
     axiosInstance.get('/services?limit=100')
       .then(res => {
         const s = res.data?.data?.services || [];
         setServices(s);
-        const firstIndividual = s.find((sv: ServiceObj) => sv.category === 'individual');
-        if (firstIndividual) setSelectedService(firstIndividual.id);
+        const first = s.find((sv: ServiceObj) => sv.category === 'individual');
+        if (first) setSelectedService(first.id);
         else if (s.length > 0) setSelectedService(s[0].id);
       })
       .catch(err => console.error(err));
   }, []);
 
+  // Pre-fill từ profile (KHÔNG auto-fill email)
+  useEffect(() => {
+    axiosInstance.get('/auth/me')
+      .then(res => {
+        const p = res.data?.data;
+        if (p) {
+          setFormFields(prev => ({
+            ...prev,
+            fullName: p.fullName || '',
+            idNumber: p.cccd    || '',
+            phone:    p.phone   || '',
+            // email: intentionally NOT auto-filled
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Handlers ──────────────────────────────────────────────────────────
   const handleCategoryChange = (cat: string) => {
     setActiveCategory(cat);
     const first = services.find(s => s.category === cat);
     if (first) {
       setSelectedService(first.id);
-      setUploadedFiles([]);
-      setAiCheckResult(null);
+      setFileEntries([]);
+      setDocGroups([]);
+      setHasAnalyzed(false);
     }
   };
 
+  const handleSetApiKey = async () => {
+    if (!apiKey.trim()) return toast.warn('Vui lòng nhập API key');
+    setIsSettingKey(true);
+    try {
+      await axiosInstance.post('/ai/set-key', { apiKey: apiKey.trim() });
+      toast.success('Đã lưu Gemini API Key cho phiên này');
+    } catch (err: any) {
+      toast.error('Lỗi: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsSettingKey(false);
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newFiles = Array.from(event.target.files || []);
+    if (newFiles.length === 0) return;
+
+    setFileEntries(prev => [
+      ...prev,
+      ...newFiles.map(file => ({ file, docType: file.name })),
+    ]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setHasAnalyzed(false);
+    setDocGroups([]);
+  };
+
+  const removeFile = (index: number) => {
+    setFileEntries(prev => prev.filter((_, i) => i !== index));
+    setHasAnalyzed(false);
+    setDocGroups([]);
+    setGroupFields({});
+  };
+
+  const toggleGroup = (idx: number) =>
+    setExpandedGroups(prev => ({ ...prev, [idx]: !prev[idx] }));
+
+  const toggleInfoGroup = (idx: number) =>
+    setExpandedInfoGroups(prev => ({ ...prev, [idx]: !prev[idx] }));
+
+  const handleGroupFieldChange = (groupIdx: number, key: string, value: string) =>
+    setGroupFields(prev => ({
+      ...prev,
+      [groupIdx]: { ...(prev[groupIdx] || {}), [key]: value },
+    }));
+
+  // ── Phân tích AI — gửi tất cả ảnh cùng 1 lần ───────────────────────
+  const handleAnalyzeFiles = async () => {
+    if (fileEntries.length === 0) return toast.warn('Vui lòng tải lên tài liệu trước');
+    setIsAnalyzing(true);
+    try {
+      const formData = new FormData();
+      fileEntries.forEach(entry => formData.append('files', entry.file));
+
+      // Gửi thông tin dịch vụ để AI kiểm tra đúng/thiếu/thừa giấy tờ
+      if (service) {
+        const reqTypes = [...new Set(requiredDocs.map(mapDocToCategory))];
+        formData.append('serviceContext', JSON.stringify({
+          serviceName:      service.name,
+          requiredDocTypes: reqTypes,
+        }));
+      }
+
+      const res = await axiosInstance.post('/ai/ocr-group', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 90000,
+      });
+
+      const { groups, mergedFields } = res.data.data;
+      setDocGroups(groups || []);
+
+      // Mặc định expand tất cả groups
+      const expanded: Record<number, boolean> = {};
+      const expandedInfo: Record<number, boolean> = {};
+      const gf: Record<number, Record<string, string>> = {};
+
+      (groups || []).forEach((g: DocGroup, i: number) => {
+        expanded[i] = true;
+        expandedInfo[i] = true;
+        // Lưu extractedFields có thể edit cho từng group
+        const fields: Record<string, string> = {};
+        Object.entries(g.extractedFields || {}).forEach(([k, v]) => {
+          if (v && v !== 'null' && v !== '' && typeof v === 'string') {
+            fields[k] = v;
+          }
+        });
+        gf[i] = fields;
+      });
+
+      setExpandedGroups(expanded);
+      setExpandedInfoGroups(expandedInfo);
+      setGroupFields(gf);
+
+      // Chỉ merge các trường contact vào formFields (không ghi đè email)
+      setFormFields(prev => ({
+        ...prev,
+        fullName: mergedFields?.fullName || prev.fullName,
+        idNumber: mergedFields?.idNumber || prev.idNumber,
+        phone:    prev.phone,   // user tự nhập
+        email:    prev.email,   // user tự nhập
+      }));
+
+      setHasAnalyzed(true);
+
+      const hasInvalid = (groups || []).some((g: DocGroup) => !g.isValid || !g.isReadable);
+      if (hasInvalid) {
+        toast.warn('Một số tài liệu có vấn đề. Vui lòng kiểm tra từng nhóm.');
+      } else {
+        toast.success('Phân tích thành công! Vui lòng kiểm tra và bổ sung thông tin.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Có lỗi khi phân tích: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleFieldChange = (key: string, value: string) =>
+    setFormFields(prev => ({ ...prev, [key]: value }));
+
+  // ── Submit ────────────────────────────────────────────────────────────
   const handleSubmitData = async (isDraft = false) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       if (!selectedService) throw new Error('Vui lòng chọn dịch vụ');
-      if (!formData.fullName || !formData.idNumber || !formData.phone) throw new Error('Vui lòng điền các trường bắt buộc (*)');
-      if (!isDraft && uploadedFiles.length === 0) throw new Error('Cần phải tải lên tài liệu để nộp hồ sơ');
+      if (!formFields.fullName || !formFields.idNumber || !formFields.phone)
+        throw new Error('Vui lòng điền Họ tên, CMND/CCCD và Số điện thoại');
+      if (!isDraft && fileEntries.length === 0)
+        throw new Error('Cần tải lên tài liệu để nộp hồ sơ');
+      if (!isDraft && !hasAnalyzed && fileEntries.length > 0)
+        throw new Error('Vui lòng nhấn "Phân tích tài liệu" trước khi nộp');
 
       const appRes = await axiosInstance.post('/applications', {
         serviceId: selectedService,
-        formData: formData
+        // Gộp formFields + tất cả groupFields để submit
+        formData: {
+          ...Object.values(groupFields).reduce((acc, gf) => ({ ...acc, ...gf }), {}),
+          ...formFields,
+        },
       });
       const appId = appRes.data.data.applicationId;
 
-      for (const file of uploadedFiles) {
-        const fileData = new FormData();
-        fileData.append('file', file);
-        fileData.append('docType', 'Tài liệu bắt buộc');
-        await axiosInstance.post(`/applications/${appId}/documents`, fileData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+      for (const entry of fileEntries) {
+        const fd = new FormData();
+        fd.append('file', entry.file);
+        fd.append('docType', entry.docType);
+        await axiosInstance.post(`/applications/${appId}/documents`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
         });
       }
 
-      if (!isDraft) {
-        await axiosInstance.post(`/applications/${appId}/submit`);
-      }
+      if (!isDraft) await axiosInstance.post(`/applications/${appId}/submit`);
 
       toast.success(isDraft ? 'Lưu nháp thành công!' : 'Nộp hồ sơ thành công!');
       navigate('/profile');
     } catch (err: any) {
-      console.error(err);
       toast.error('Có lỗi xảy ra: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    setUploadedFiles([...uploadedFiles, ...files]);
-    setAiCheckResult(null);
+  // ── Computed ──────────────────────────────────────────────────────────
+  const service      = services.find(s => s.id === selectedService);
+  const requiredDocs = service?.requiredDocs || [];
+
+  // Map requiredDocs strings → docCategory codes cho AI
+  const mapDocToCategory = (doc: string): string => {
+    const l = doc.toLowerCase();
+    if (l.includes('ccđ') || l.includes('căn cước') || l.includes('cmđ') || l.includes('chứng minh')) return 'cccd';
+    if (l.includes('hộ khẩu') || l.includes('hộ tịch')) return 'ho_khau';
+    if (l.includes('khai sinh')) return 'giay_khai_sinh';
+    if (l.includes('kết hôn')) return 'giay_ket_hon';
+    if (l.includes('kinh doanh') || l.includes('đăng ký doanh')) return 'giay_phep_kinh_doanh';
+    if (l.includes('bằng lái') || l.includes('giấy phép lái')) return 'bang_lai_xe';
+    return 'khac';
   };
 
-  const handleAICheck = () => {
-    setIsChecking(true);
+  // Chỉ block khi có group warningLevel=error (giấy tờ thực sự không hợp lệ)
+  // Warning (mờ, thiếu mộc đỏ...) vẫn cho phép nộp, cán bộ sẽ kiểm tra
+  const anyHardError = docGroups.some(g => g.warningLevel === 'error');
+  const anyWarning   = docGroups.some(g => g.warningLevel === 'warning');
+  const canSubmit    = fileEntries.length > 0 && hasAnalyzed && !anyHardError;
 
-    // Simulate AI checking
-    setTimeout(() => {
-      const required = services.find(s => s.id === selectedService)?.requiredDocs || [];
-      const mockResults: DocumentCheck[] = required.map((doc, index) => {
-        // Random result for demo
-        const random = Math.random();
-        if (uploadedFiles.length < required.length) {
-          if (index < uploadedFiles.length) {
-            return {
-              name: doc,
-              status: random > 0.2 ? 'valid' : 'invalid',
-              message: random > 0.2
-                ? 'Giấy tờ hợp lệ, rõ ràng, đầy đủ thông tin'
-                : 'Giấy tờ không rõ ràng hoặc thiếu thông tin. Vui lòng tải lên lại'
-            };
-          } else {
-            return {
-              name: doc,
-              status: 'missing',
-              message: 'Chưa tải lên giấy tờ này'
-            };
-          }
-        }
-        return {
-          name: doc,
-          status: index === 0 && random < 0.3 ? 'invalid' : 'valid',
-          message: index === 0 && random < 0.3
-            ? 'Giấy tờ không đủ độ phân giải. Vui lòng chụp lại rõ hơn'
-            : 'Giấy tờ hợp lệ, rõ ràng, đầy đủ thông tin'
-        };
-      });
+  // Form fields definition — không có required
+  const FORM_FIELDS = [
+    { key: 'fullName', label: 'Họ và tên' },
+    { key: 'idNumber', label: 'CMND/CCCD' },
+    { key: 'phone',    label: 'Số điện thoại' },
+    { key: 'email',    label: 'Email' },
+  ];
 
-      setAiCheckResult(mockResults);
-      setIsChecking(false);
-    }, 2000);
-  };
-
-  const allDocumentsValid = aiCheckResult?.every(doc => doc.status === 'valid') || false;
-
+  // ── Render ────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -157,155 +332,108 @@ export function ServiceFormPage() {
               <ArrowLeft size={20} />
               <span className="font-medium">Quay lại trang chủ</span>
             </Link>
+
+            {/* API Key */}
+            <div className="flex items-center gap-2 bg-gray-100 p-1.5 rounded-lg border border-gray-200">
+              <Key size={16} className="text-gray-500 ml-1" />
+              <input
+                type="password"
+                placeholder="Gemini API Key (để test OCR)"
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+                className="bg-transparent border-none outline-none text-sm w-48 px-1"
+              />
+              <Button size="sm" variant="outline" onClick={handleSetApiKey} disabled={isSettingKey} className="h-7 text-xs bg-white">
+                {isSettingKey ? 'Lưu...' : 'Lưu Key'}
+              </Button>
+            </div>
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Link to="/" className="hover:text-red-700">
-              <Home size={16} />
-            </Link>
-            <span>/</span>
-            <span>Dịch vụ công</span>
-            <span>/</span>
+            <Link to="/" className="hover:text-red-700"><Home size={16} /></Link>
+            <span>/</span><span>Dịch vụ công</span><span>/</span>
             <span className="text-red-700 font-medium">Nộp hồ sơ trực tuyến</span>
           </div>
         </div>
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-8">
-        {/* Service Selection */}
+
+        {/* ── 1. Chọn dịch vụ ── */}
         <Card className="p-6 mb-6">
           <h2 className="text-xl font-bold text-red-800 mb-4">Chọn dịch vụ công</h2>
-
-          {/* Category Tabs */}
-          <div className="flex gap-2 mb-5 border-b border-gray-200">
+          <div className="flex gap-2 mb-5 border-b border-gray-200 overflow-x-auto">
             {CATEGORIES.map(cat => (
               <button
                 key={cat.value}
                 onClick={() => handleCategoryChange(cat.value)}
-                className={`px-5 py-2.5 text-sm font-medium rounded-t-lg -mb-px border-b-2 transition ${
+                className={`px-5 py-2.5 text-sm font-medium rounded-t-lg whitespace-nowrap -mb-px border-b-2 transition ${
                   activeCategory === cat.value
                     ? 'border-red-700 text-red-700 bg-red-50'
                     : 'border-transparent text-gray-500 hover:text-gray-800'
                 }`}
               >
                 {cat.label}
-                <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs ${
-                  activeCategory === cat.value ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'
-                }`}>
-                  {services.filter(s => s.category === cat.value).length}
-                </span>
               </button>
             ))}
           </div>
 
-          {/* Services in selected category */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {services.filter(s => s.category === activeCategory).map(service => (
+            {services.filter(s => s.category === activeCategory).map(sv => (
               <button
-                key={service.id}
+                key={sv.id}
                 onClick={() => {
-                  setSelectedService(service.id);
-                  setUploadedFiles([]);
-                  setAiCheckResult(null);
+                  setSelectedService(sv.id);
+                  setFileEntries([]);
+                  setDocGroups([]);
+                  setHasAnalyzed(false);
                 }}
                 className={`p-4 rounded-xl border-2 transition text-left ${
-                  selectedService === service.id
+                  selectedService === sv.id
                     ? 'border-red-700 bg-red-50 shadow-sm'
                     : 'border-gray-200 hover:border-red-300 hover:bg-gray-50'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="font-medium text-gray-900">{service.name}</div>
-                  {selectedService === service.id && (
-                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-red-700 flex items-center justify-center">
-                      <CheckCircle size={12} className="text-white" />
-                    </span>
-                  )}
+                  <div className="font-medium text-gray-900">{sv.name}</div>
+                  {selectedService === sv.id && <CheckCircle size={16} className="text-red-700 shrink-0" />}
                 </div>
-                {service.agency && (
-                  <div className="text-xs text-gray-500 mt-1">{service.agency}</div>
-                )}
-                {service.processingTime && (
-                  <div className="text-xs text-gray-500 mt-0.5">⏱ {service.processingTime} &nbsp;·&nbsp; {service.fee}</div>
+                {sv.processingTime && (
+                  <div className="text-xs text-gray-500 mt-2">⏱ {sv.processingTime} &nbsp;·&nbsp; Lệ phí: {sv.fee} đ</div>
                 )}
               </button>
             ))}
-            {services.filter(s => s.category === activeCategory).length === 0 && (
-              <div className="col-span-2 py-8 text-center text-gray-400 text-sm">
-                Không có dịch vụ nào trong nhóm này.
-              </div>
-            )}
           </div>
         </Card>
 
-        {/* Form Information */}
+        {/* ── 2. Tải lên tài liệu ── */}
         <Card className="p-6 mb-6">
-          <h2 className="text-xl font-bold text-red-800 mb-4">Thông tin người nộp hồ sơ</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Họ và tên <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="Nguyễn Văn A"
-                value={formData.fullName}
-                onChange={e => setFormData({ ...formData, fullName: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                CMND/CCCD <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="001234567890"
-                value={formData.idNumber}
-                onChange={e => setFormData({ ...formData, idNumber: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Số điện thoại <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="tel"
-                placeholder="0912345678"
-                value={formData.phone}
-                onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                placeholder="example@email.com"
-                value={formData.email}
-                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-            </div>
-          </div>
-        </Card>
+          <h2 className="text-xl font-bold text-red-800 mb-4 flex items-center gap-2">
+            <Upload size={20} /> Tải lên tài liệu
+          </h2>
 
-        {/* Document Upload */}
-        <Card className="p-6 mb-6">
-          <h2 className="text-xl font-bold text-red-800 mb-4">Tải lên hồ sơ</h2>
+          {requiredDocs.length > 0 && (
+            <div className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+                <FileText size={18} /> Yêu cầu giấy tờ:
+              </h3>
+              <ul className="space-y-2 text-sm text-blue-800 mt-3">
+                {requiredDocs.map((doc, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <span className="text-blue-600 flex-shrink-0">•</span>
+                    <span className="flex-1">{doc}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
-
-
-          {/* Upload Button */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-red-500 transition">
-            <Upload className="mx-auto mb-4 text-gray-400" size={48} />
+          {/* Drop zone */}
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-red-500 transition mb-4">
+            <Upload className="mx-auto mb-3 text-gray-400" size={48} />
             <label className="cursor-pointer">
-              <span className="text-red-700 font-medium hover:text-red-800">
-                Chọn file để tải lên
-              </span>
+              <span className="text-red-700 font-medium hover:text-red-800">Chọn file tải lên</span>
               <input
+                ref={fileInputRef}
                 type="file"
                 multiple
                 accept="image/*,.pdf"
@@ -313,158 +441,447 @@ export function ServiceFormPage() {
                 className="hidden"
               />
             </label>
-            <p className="text-sm text-gray-500 mt-2">
-              Hỗ trợ: JPG, PNG, PDF (tối đa 10MB/file)
-            </p>
+            <p className="text-sm text-gray-500 mt-2">Có thể chọn nhiều file cùng lúc (Ctrl+Click). Hỗ trợ: JPG, PNG, PDF</p>
+            <p className="text-xs text-gray-400 mt-1">Ví dụ: chọn cả mặt trước + mặt sau CCCD → AI sẽ tự nhóm lại</p>
           </div>
 
-          {/* Required Documents List */}
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
-              <FileText size={18} />
-              Yêu cầu giấy tờ cần thiết trong thủ tục này:
-            </h3>
-            <ul className="space-y-2 text-sm text-blue-800 mt-3">
-              {services.find(s => s.id === selectedService)?.requiredDocs?.map((doc, index) => {
-                const isForm = doc.toLowerCase().includes('tờ khai') || doc.toLowerCase().includes('mẫu') || doc.toLowerCase().includes('đơn');
-                return (
-                  <li key={index} className="flex items-center gap-2">
-                    <span className="text-blue-600 mt-0.5">•</span>
-                    <span className="flex-1">{doc}</span>
-                    {isForm && (
-                      <a href="#" onClick={(e) => { e.preventDefault(); toast.info('Xin lỗi, file biểu mẫu đang được bổ sung!'); }} className="flex items-center gap-1 text-xs bg-white px-2 py-1 rounded border border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition">
-                        <Download size={14} />
-                        Tải biểu mẫu
-                      </a>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-
-          {/* Uploaded Files */}
-          {uploadedFiles.length > 0 && (
-            <div className="mt-4">
-              <h3 className="font-medium text-gray-900 mb-3">
-                Đã tải lên ({uploadedFiles.length} file):
-              </h3>
-              <div className="space-y-2">
-                {uploadedFiles.map((file, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <FileText className="text-gray-400" size={24} />
-                    <span className="flex-1 text-sm text-gray-700">{file.name}</span>
-                    <span className="text-xs text-gray-500">
-                      {(file.size / 1024).toFixed(2)} KB
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setUploadedFiles(prev => prev.filter((_, i) => i !== index))}
-                      className="text-red-500 hover:text-red-700 transition"
-                    >
-                      <XCircle size={20} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* AI Check Button */}
-          {uploadedFiles.length > 0 && !aiCheckResult && (
-            <Button
-              onClick={handleAICheck}
-              disabled={isChecking}
-              className="w-full mt-4 bg-amber-500 hover:bg-amber-600 text-gray-900 py-3"
-            >
-              {isChecking ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900 mr-2"></div>
-                  AI đang kiểm tra hồ sơ...
-                </>
-              ) : (
-                <>
-                  <AlertCircle size={20} className="mr-2" />
-                  Kiểm tra hồ sơ bằng AI
-                </>
-              )}
-            </Button>
-          )}
-
-          {/* AI Check Results */}
-          {aiCheckResult && (
-            <div className="mt-6 space-y-3">
-              <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                <AlertCircle size={20} className="text-amber-600" />
-                Kết quả kiểm tra tự động:
-              </h3>
-              {aiCheckResult.map((doc, index) => (
-                <div
-                  key={index}
-                  className={`p-4 rounded-lg border-2 ${
-                    doc.status === 'valid'
-                      ? 'border-green-200 bg-green-50'
-                      : doc.status === 'invalid'
-                      ? 'border-red-200 bg-red-50'
-                      : 'border-gray-200 bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {doc.status === 'valid' ? (
-                      <CheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={24} />
-                    ) : doc.status === 'invalid' ? (
-                      <XCircle className="text-red-600 flex-shrink-0 mt-0.5" size={24} />
-                    ) : (
-                      <AlertCircle className="text-gray-400 flex-shrink-0 mt-0.5" size={24} />
-                    )}
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900 mb-1">{doc.name}</div>
-                      <div className={`text-sm ${
-                        doc.status === 'valid'
-                          ? 'text-green-700'
-                          : doc.status === 'invalid'
-                          ? 'text-red-700'
-                          : 'text-gray-600'
-                      }`}>
-                        {doc.message}
-                      </div>
+          {/* Danh sách file đã upload */}
+          {fileEntries.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {fileEntries.map((entry, index) => (
+                <div key={index} className="p-3 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-between">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <FileText className="text-gray-400 shrink-0" size={18} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{entry.file.name}</p>
+                      <p className="text-xs text-gray-400">{(entry.file.size / 1024).toFixed(0)} KB</p>
                     </div>
                   </div>
+                  <button onClick={() => removeFile(index)} className="text-gray-400 hover:text-red-600 p-1">
+                    <XCircle size={18} />
+                  </button>
                 </div>
               ))}
             </div>
           )}
+
+          {fileEntries.length > 0 && (
+            <Button
+              onClick={handleAnalyzeFiles}
+              disabled={isAnalyzing}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 rounded-xl shadow-md text-base"
+            >
+              {isAnalyzing ? (
+                <><Loader2 size={20} className="mr-2 animate-spin" /> Đang phân tích và nhóm tài liệu bằng AI...</>
+              ) : (
+                <><RefreshCw size={20} className="mr-2" /> Phân tích tài liệu & Điền thông tin tự động</>
+              )}
+            </Button>
+          )}
         </Card>
 
-        {/* Submit Button */}
+        {/* ── 3. Kết quả nhóm giấy tờ ── */}
+        {hasAnalyzed && docGroups.length > 0 && (
+          <Card className="p-6 mb-6 border-green-200">
+            <h2 className="text-xl font-bold text-green-800 mb-1 flex items-center gap-2">
+              <LayersIcon size={20} /> Kết quả phân tích tài liệu
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              AI đã nhận diện được {docGroups.length} nhóm giấy tờ từ {fileEntries.length} file tải lên.
+            </p>
+
+            <div className="space-y-4">
+              {docGroups.map((group, gi) => {
+                const icon = CAT_ICON[group.docCategory] || '📄';
+                const isExpanded = expandedGroups[gi] !== false;
+                const wl = group.warningLevel || (group.isValid && group.isReadable ? 'ok' : 'error');
+                const statusColor =
+                  wl === 'error'   ? 'border-red-300 bg-red-50' :
+                  wl === 'warning' ? 'border-yellow-300 bg-yellow-50' :
+                                     'border-green-300 bg-green-50';
+
+                // Config cho từng loại mã lỗi
+                const ERROR_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
+                  BLURRY_IMAGE:      { label: 'Ảnh nhòe/mờ',                    icon: '🌫️', color: 'bg-red-100 text-red-800 border-red-200' },
+                  MISSING_SEAL:      { label: 'Thiếu mộc đỏ / chữ ký',          icon: '🔏', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+                  FAKE_DOCUMENT:     { label: 'Nghi ngờ giấy tờ giả',           icon: '⚠️', color: 'bg-red-100 text-red-800 border-red-200' },
+                  MISMATCHED_SIDES:  { label: 'Thông tin không khớp',            icon: '🔀', color: 'bg-red-100 text-red-800 border-red-200' },
+                  MISSING_FIELDS:    { label: 'Thiếu thông tin bắt buộc',        icon: '📋', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+                  CROPPED_IMAGE:     { label: 'Ảnh bị cắt xén/thiếu góc',       icon: '✂️', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+                  DUPLICATE_TYPE:    { label: 'Dư giấy tờ cùng loại',           icon: '📑', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+                  EXCESS_DOCS:       { label: 'Quá nhiều giấy tờ',              icon: '📚', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+                  MISSING_TYPE:      { label: 'Thiếu loại giấy tờ yêu cầu',     icon: '📌', color: 'bg-orange-100 text-orange-800 border-orange-200' },
+                };
+
+                const validErrors = (group.validationErrors || []).filter(
+                  e => Object.keys(ERROR_CONFIG).includes(e)
+                );
+
+                return (
+                  <div key={gi} className={`rounded-xl border-2 overflow-hidden ${statusColor}`}>
+                    {/* Group header */}
+                    <button
+                      className="w-full flex items-center justify-between p-4 text-left hover:opacity-80 transition"
+                      onClick={() => toggleGroup(gi)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{icon}</span>
+                        <div>
+                          <p className="font-semibold text-gray-900">{group.groupLabel}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {group.files.map(f => f.fileName).join(' · ')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Status badge */}
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
+                          wl === 'error'   ? 'bg-red-100 text-red-700 border-red-200' :
+                          wl === 'warning' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
+                                             'bg-green-100 text-green-700 border-green-200'
+                        }`}>
+                          {wl === 'error' ? '❌ Không hợp lệ' : wl === 'warning' ? '⚠️ Cần kiểm tra' : '✅ Hợp lệ'}
+                        </span>
+                        {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                      </div>
+                    </button>
+
+                    {/* Group details */}
+                    {isExpanded && (
+                      <div className="px-4 pb-4 border-t border-white/60">
+                        {/* Message */}
+                        {group.message && (
+                          <p className={`text-sm mt-3 mb-2 ${
+                            wl === 'error' ? 'text-red-700' : wl === 'warning' ? 'text-yellow-700' : 'text-green-700'
+                          }`}>
+                            {group.message}
+                          </p>
+                        )}
+
+                        {/* Validation error badges */}
+                        {validErrors.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {validErrors.map(code => {
+                              const cfg = ERROR_CONFIG[code];
+                              return (
+                                <span
+                                  key={code}
+                                  className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium ${cfg.color}`}
+                                  title={code}
+                                >
+                                  <span>{cfg.icon}</span>
+                                  {cfg.label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Issues detail */}
+                        {group.issues && group.issues.length > 0 && (
+                          <div className="mb-3 p-2 bg-white/70 border border-orange-200 rounded-lg space-y-1">
+                            {group.issues.map((issue, ii) => (
+                              <p key={ii} className="text-xs text-orange-700">⚠ {issue}</p>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Extracted fields — badge view */}
+                        {Object.entries(group.extractedFields || {})
+                          .filter(([k, v]) => v && v !== 'null' && v !== '' && k !== 'thanhVienHo' && typeof v === 'string')
+                          .length > 0 && (
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            {Object.entries(group.extractedFields)
+                              .filter(([k, v]) => v && v !== 'null' && v !== '' && k !== 'thanhVienHo' && typeof v === 'string')
+                              .map(([k, v]) => (
+                                <div key={k} className="bg-white/70 rounded-lg px-3 py-2">
+                                  <p className="text-xs text-gray-500 capitalize">{k}</p>
+                                  <p className="text-sm font-medium text-gray-800 break-words">{v as string}</p>
+                                </div>
+                              ))
+                            }
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
+
+        {/* ── 4A. Thông tin liên hệ ── */}
+        {(hasAnalyzed || formFields.fullName) && (
+          <Card className="p-6 mb-4 border-blue-200 shadow-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-blue-900">Thông tin liên hệ</h2>
+              <div className="flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full font-medium">
+                <CheckCircle size={14} /> Vui lòng kiểm tra và chỉnh sửa nếu cần
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {FORM_FIELDS.map(({ key, label }) => (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {label}
+                    {key === 'email' && (
+                      <span className="ml-1 text-xs text-gray-400 font-normal">(không bắt buộc)</span>
+                    )}
+                  </label>
+                  <input
+                    type={key === 'email' ? 'email' : 'text'}
+                    value={formFields[key] || ''}
+                    onChange={e => handleFieldChange(key, e.target.value)}
+                    placeholder={key === 'email' ? 'Nhập email của bạn...' : ''}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* ── 4B. Thông tin trích xuất theo từng nhóm giấy tờ ── */}
+        {hasAnalyzed && docGroups.length > 0 && (
+          <div className="space-y-4 mb-6">
+            {docGroups.map((group, gi) => {
+              const icon       = CAT_ICON[group.docCategory] || '📄';
+              const fields     = groupFields[gi] || {};
+              const isExpanded = expandedInfoGroups[gi] !== false;
+              const hasFields  = Object.keys(fields).length > 0;
+              const wl         = group.warningLevel || (group.isValid && group.isReadable ? 'ok' : 'error');
+
+              const ERROR_LABELS: Record<string, string> = {
+                BLURRY_IMAGE:     '🌫️ Ảnh nhòe/mờ',
+                MISSING_SEAL:     '🔏 Thiếu mộc đỏ/chữ ký',
+                FAKE_DOCUMENT:    '⚠️ Nghi giấy tờ giả',
+                MISMATCHED_SIDES: '🔀 Thông tin không khớp',
+                MISSING_FIELDS:   '📋 Thiếu thông tin bắt buộc',
+                CROPPED_IMAGE:    '✂️ Ảnh bị cắt xén',
+                DUPLICATE_TYPE:   '📑 Dư giấy tờ cùng loại',
+                EXCESS_DOCS:      '📚 Quá nhiều giấy tờ',
+                MISSING_TYPE:     '📌 Thiếu loại giấy tờ yêu cầu',
+              };
+
+              // Border overrides theo warningLevel
+              const borderClass =
+                wl === 'error'   ? 'border-red-300' :
+                wl === 'warning' ? 'border-yellow-300' :
+                group.docCategory === 'cccd' ? 'border-indigo-200' :
+                group.docCategory === 'ho_khau' ? 'border-emerald-200' :
+                group.docCategory === 'giay_khai_sinh' ? 'border-pink-200' :
+                group.docCategory === 'giay_ket_hon' ? 'border-rose-200' :
+                group.docCategory === 'giay_phep_kinh_doanh' ? 'border-amber-200' :
+                group.docCategory === 'bang_lai_xe' ? 'border-sky-200' : 'border-gray-200';
+
+              const headerClass =
+                wl === 'error'   ? 'bg-red-50' :
+                wl === 'warning' ? 'bg-yellow-50' :
+                group.docCategory === 'cccd' ? 'bg-indigo-50' :
+                group.docCategory === 'ho_khau' ? 'bg-emerald-50' :
+                group.docCategory === 'giay_khai_sinh' ? 'bg-pink-50' :
+                group.docCategory === 'giay_ket_hon' ? 'bg-rose-50' :
+                group.docCategory === 'giay_phep_kinh_doanh' ? 'bg-amber-50' :
+                group.docCategory === 'bang_lai_xe' ? 'bg-sky-50' : 'bg-gray-50';
+
+              const catBadge =
+                group.docCategory === 'cccd' ? 'bg-indigo-100 text-indigo-800' :
+                group.docCategory === 'ho_khau' ? 'bg-emerald-100 text-emerald-800' :
+                group.docCategory === 'giay_khai_sinh' ? 'bg-pink-100 text-pink-800' :
+                group.docCategory === 'giay_ket_hon' ? 'bg-rose-100 text-rose-800' :
+                group.docCategory === 'giay_phep_kinh_doanh' ? 'bg-amber-100 text-amber-800' :
+                group.docCategory === 'bang_lai_xe' ? 'bg-sky-100 text-sky-800' : 'bg-gray-100 text-gray-700';
+
+              const catLabel =
+                group.docCategory === 'cccd' ? 'CCCD / CMND' :
+                group.docCategory === 'ho_khau' ? 'Sổ hộ khẩu' :
+                group.docCategory === 'giay_khai_sinh' ? 'Khai sinh' :
+                group.docCategory === 'giay_ket_hon' ? 'Đăng ký kết hôn' :
+                group.docCategory === 'giay_phep_kinh_doanh' ? 'Kinh doanh' :
+                group.docCategory === 'bang_lai_xe' ? 'Bằng lái xe' : 'Khác';
+
+              const FIELD_LABELS: Record<string, string> = {
+                cccd: 'Số CCCD/CMND', fullName: 'Họ và tên', dob: 'Ngày sinh', gender: 'Giới tính',
+                hometown: 'Quê quán', nationality: 'Quốc tịch', noiDangKyKhaiSinh: 'Nơi đăng ký khai sinh',
+                address: 'Nơi thường trú', issueDate: 'Ngày cấp', expiryDate: 'Ngày hết hạn',
+                issuePlace: 'Nơi cấp', soHoKhau: 'Số sổ hộ khẩu', chuHo: 'Chủ hộ',
+                noiThuongTru: 'Nơi thường trú (hộ khẩu)', cmndChuHo: 'CMND chủ hộ',
+                ngayChuyenDen: 'Ngày chuyển đến', noiChuyenDen: 'Nơi chuyển đến',
+                soGiayTo: 'Số giấy tờ',
+              };
+
+              const validErrors = (group.validationErrors || []).filter(e => ERROR_LABELS[e]);
+
+              return (
+                <Card key={gi} className={`overflow-hidden border-2 ${borderClass}`}>
+                  {/* Card header */}
+                  <button
+                    className={`w-full flex items-center justify-between p-4 text-left ${headerClass} hover:opacity-90 transition`}
+                    onClick={() => toggleInfoGroup(gi)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{icon}</span>
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm">{group.groupLabel}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {hasFields ? `${Object.keys(fields).length} trường thông tin` : 'Không có thông tin trích xuất'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* warningLevel badge */}
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
+                        wl === 'error'   ? 'bg-red-100 text-red-700 border-red-200' :
+                        wl === 'warning' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
+                                           'bg-green-100 text-green-700 border-green-200'
+                      }`}>
+                        {wl === 'error' ? '❌ Lỗi' : wl === 'warning' ? '⚠️ Cảnh báo' : '✅ Hợp lệ'}
+                      </span>
+                      {/* doc type badge */}
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${catBadge}`}>
+                        {catLabel}
+                      </span>
+                      {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                    </div>
+                  </button>
+
+                  {/* Card body — editable fields */}
+                  {isExpanded && (
+                    <div className="p-4 bg-white">
+
+                      {/* Validation errors — compact tags */}
+                      {validErrors.length > 0 && (
+                        <div className={`mb-3 p-3 rounded-lg border ${
+                          wl === 'error' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'
+                        }`}>
+                          <p className={`text-xs font-semibold mb-2 ${wl === 'error' ? 'text-red-700' : 'text-yellow-700'}`}>
+                            {wl === 'error' ? '❌ Phát hiện lỗi cần xử lý:' : '⚠️ Cảnh báo cần kiểm tra:'}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {validErrors.map(code => (
+                              <span key={code} className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                wl === 'error' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {ERROR_LABELS[code]}
+                              </span>
+                            ))}
+                          </div>
+                          {group.issues && group.issues.length > 0 && (
+                            <div className="mt-2 space-y-0.5">
+                              {group.issues.map((issue, ii) => (
+                                <p key={ii} className={`text-xs ${wl === 'error' ? 'text-red-600' : 'text-yellow-700'}`}>
+                                  • {issue}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {!hasFields ? (
+                        <p className="text-sm text-gray-400 italic">AI không trích xuất được thông tin từ tài liệu này.</p>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {Object.entries(fields).map(([k, v]) => {
+                            // Bỏ qua thanhVienHo (array) - hiển thị riêng bên dưới
+                            if (k === 'thanhVienHo') return null;
+                            return (
+                              <div key={k}>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">
+                                  {FIELD_LABELS[k] || k}
+                                </label>
+                                <input
+                                  type="text"
+                                  value={v}
+                                  onChange={e => handleGroupFieldChange(gi, k, e.target.value)}
+                                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none bg-gray-50 focus:bg-white transition"
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Thành viên hộ (nếu có) */}
+                      {Array.isArray((group.extractedFields as any)?.thanhVienHo) &&
+                       (group.extractedFields as any).thanhVienHo.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-xs font-semibold text-gray-600 mb-2">Thành viên hộ:</p>
+                          <div className="space-y-2">
+                            {(group.extractedFields as any).thanhVienHo.map((tv: any, tvi: number) => (
+                              <div key={tvi} className="flex gap-2 flex-wrap text-xs bg-emerald-50 rounded-lg p-2">
+                                {tv.hoTen && <span><b>Họ tên:</b> {tv.hoTen}</span>}
+                                {tv.quanHe && <span>· <b>Quan hệ:</b> {tv.quanHe}</span>}
+                                {tv.ngaySinh && <span>· <b>Ngày sinh:</b> {tv.ngaySinh}</span>}
+                                {tv.cmnd && <span>· <b>CMND:</b> {tv.cmnd}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+
+        {/* ── 5. Submit ── */}
+
+        {/* Advisory banner: warning = AI gợi ý, không block */}
+        {hasAnalyzed && anyWarning && !anyHardError && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded-xl flex items-start gap-3">
+            <span className="text-xl mt-0.5">⚠️</span>
+            <div>
+              <p className="text-sm font-semibold text-yellow-800">AI phát hiện một số điểm cần kiểm tra</p>
+              <p className="text-xs text-yellow-700 mt-0.5">
+                Đây chỉ là gợi ý tự động. Bạn vẫn có thể nộp hồ sơ — cán bộ sẽ kiểm tra và quyết định cuối cùng.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Hard error banner: chặn nộp */}
+        {hasAnalyzed && anyHardError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
+            <span className="text-xl mt-0.5">❌</span>
+            <div>
+              <p className="text-sm font-semibold text-red-800">Tài liệu có lỗi nghiêm trọng, không thể nộp hồ sơ</p>
+              <p className="text-xs text-red-700 mt-0.5">
+                Vui lòng kiểm tra các nhóm đánh dấu ❌ phía trên và tải lại tài liệu hợp lệ.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-4">
-          <Button
-            variant="outline"
-            onClick={() => handleSubmitData(true)}
-            disabled={isSubmitting}
-            className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 py-3"
-          >
+          <Button variant="outline" onClick={() => handleSubmitData(true)} disabled={isSubmitting} className="flex-1 py-6">
             Lưu nháp
           </Button>
           <Button
-            disabled={!allDocumentsValid || isSubmitting}
+            disabled={!canSubmit || isSubmitting}
             onClick={() => handleSubmitData(false)}
-            className={`flex-1 py-3 ${
-              allDocumentsValid && !isSubmitting
-                ? 'bg-red-700 hover:bg-red-800 text-white'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            className={`flex-[2] py-6 text-lg font-semibold shadow-md ${
+              !canSubmit || isSubmitting
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : anyWarning
+                  ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                  : 'bg-red-700 hover:bg-red-800 text-white'
             }`}
           >
-            {isSubmitting ? 'Đang xử lý...' : 'Nộp hồ sơ'}
-            {!isSubmitting && <ArrowRight size={20} className="ml-2" />}
+            {isSubmitting
+              ? 'Đang xử lý...'
+              : !canSubmit
+                ? 'Không thể nộp — kiểm tra lại tài liệu'
+                : anyWarning
+                  ? 'Xác nhận nộp (có cảnh báo AI)'
+                  : 'Xác nhận nộp hồ sơ'}
+            {!isSubmitting && canSubmit && <ArrowRight size={20} className="ml-2" />}
           </Button>
         </div>
-
-        {!allDocumentsValid && aiCheckResult && (
-          <p className="text-center text-sm text-red-600 mt-3">
-            Vui lòng hoàn thiện và sửa các giấy tờ chưa hợp lệ trước khi nộp hồ sơ
-          </p>
-        )}
       </div>
     </div>
   );

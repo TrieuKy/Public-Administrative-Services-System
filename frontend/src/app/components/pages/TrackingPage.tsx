@@ -112,7 +112,7 @@ export function TrackingPage() {
                 placeholder="Nhập mã hồ sơ (VD: HS2026040001)"
                 value={searchCode}
                 onChange={(e) => setSearchCode(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-900"
               />
               <Button

@@ -112,13 +112,16 @@ exports.submitApplication = async (req, res) => {
       note: 'Công dân nộp hồ sơ trực tuyến'
     });
 
-    await emailService.sendApplicationConfirm(app.citizen.email, app.applicationCode);
+    try {
+      await emailService.sendApplicationConfirm(app.citizen.email, app.applicationCode);
+    } catch (emailErr) {
+      console.warn('[Email] Không gửi được email xác nhận hồ sơ:', emailErr.message);
+    }
 
     return success(res, {
       applicationId:   app.id,
       applicationCode: app.applicationCode,
       status:          'PENDING',
-      message:         'Đã gửi email xác nhận'
     });
   } catch (err) { return error(res, err.message, 500); }
 };

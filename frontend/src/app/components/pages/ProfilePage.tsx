@@ -18,42 +18,37 @@ export function ProfilePage() {
   const [ratingApp, setRatingApp] = useState<any>(null);
   const [ratingValue, setRatingValue] = useState(5);
   
-  const handleMockOcrScan = () => {
+  const handleOcrScan = async () => {
     if (!frontImage || !backImage) {
-      alert("Lỗi: Yêu cầu tải lên đầy đủ hai mặt (Trước & Sau) của thẻ Căn cước công dân!");
+      alert('Lỗi: Yêu cầu tải lên đầy đủ hai mặt (Trước & Sau) của thẻ Căn cước công dân!');
       return;
     }
     if (!frontImage.type.startsWith('image/') || !backImage.type.startsWith('image/')) {
-      alert("Lỗi: Định dạng file không hợp lệ! Vui lòng chỉ tải lên tài liệu hình ảnh (JPG, PNG...).");
+      alert('Lỗi: Định dạng file không hợp lệ! Vui lòng chỉ tải lên tài liệu hình ảnh (JPG, PNG...).');
       return;
     }
 
     setIsScanning(true);
-    setTimeout(() => {
-      const fakeData = {
-        fullName: profile?.fullName || "Nguyễn Văn A",
-        dob: "2000-01-01",
-        gender: "Nam",
-        pob: "Hà Nội",
-        hometown: "Hà Nội",
-        address: "Số 1 Cầu Giấy, Hà Nội",
-        nationality: "Việt Nam",
-        issueDate: "2021-05-15",
-        expiryDate: "2035-01-01",
-        issuePlace: "Cục CS QLHC về TTXH"
-      };
-      
-      axiosInstance.put('/auth/me', fakeData)
-        .then(res => {
-          setProfile(res.data.data);
-          setIsScanning(false);
-        })
-        .catch(err => {
-          console.error(err);
-          setIsScanning(false);
-          alert("Có lỗi khi lưu dữ liệu OCR.");
-        });
-    }, 2500);
+    try {
+      // Gửi ảnh mặt trước lên Gemini Vision để đọc thông tin CCCD
+      const frontForm = new FormData();
+      frontForm.append('image', frontImage);
+      const ocrRes = await axiosInstance.post('/ai/ocr-cccd', frontForm, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const ocrData = ocrRes.data.data;
+
+      // Cập nhật thông tin vào hồ sơ người dùng
+      const updateRes = await axiosInstance.put('/auth/me', ocrData);
+      setProfile(updateRes.data.data);
+      alert('Quét OCR thành công! Thông tin CCCD đã được điền tự động.');
+    } catch (err: any) {
+      console.error(err);
+      alert('Không thể đọc thông tin từ ảnh: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsScanning(false);
+    }
   };
   
   // Tracking vars
@@ -147,7 +142,7 @@ export function ProfilePage() {
   };
 
   const DataRow = ({ label, value, renderExtra }: { label: string, value: string | null, renderExtra?: React.ReactNode | (() => React.ReactNode) }) => (
-    <div className="flex border-b py-3 text-sm min-h-[48px]">
+    <div className="flex border-b py-3 text-sm min-h-12">
       <div className="w-1/3 text-gray-500 self-center">{label}</div>
       <div className="w-2/3 flex items-center justify-between font-medium text-gray-900 group">
         <div className="flex-1 flex items-center gap-2">
@@ -155,7 +150,7 @@ export function ProfilePage() {
             value ? <span>{value}</span> : <span className="text-orange-500 italic font-normal">Chưa có dữ liệu</span>
           )}
         </div>
-        {!renderExtra && (value ? <CheckCircle size={16} className="text-green-500 flex-shrink-0"/> : <AlertCircle size={16} className="text-orange-500 flex-shrink-0"/>)}
+        {!renderExtra && (value ? <CheckCircle size={16} className="text-green-500 shrink-0"/> : <AlertCircle size={16} className="text-orange-500 shrink-0"/>)}
       </div>
     </div>
   );
@@ -207,11 +202,11 @@ export function ProfilePage() {
             </div>
             <div className="flex flex-col ml-10 border-l border-gray-200 py-1">
               <button onClick={() => setActiveTab('identity')} className={`text-left px-4 py-2 text-sm relative ${activeTab === 'identity' ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-blue-500'}`}>
-                {activeTab === 'identity' && <div className="absolute left-[-1px] top-0 bottom-0 w-0.5 bg-blue-600"></div>}
+                {activeTab === 'identity' && <div className="absolute -left-px top-0 bottom-0 w-0.5 bg-blue-600"></div>}
                 Thông tin định danh
               </button>
               <button onClick={() => setActiveTab('extended')} className={`text-left px-4 py-2 text-sm relative ${activeTab === 'extended' ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-blue-500'}`}>
-                 {activeTab === 'extended' && <div className="absolute left-[-1px] top-0 bottom-0 w-0.5 bg-blue-600"></div>}
+                 {activeTab === 'extended' && <div className="absolute -left-px top-0 bottom-0 w-0.5 bg-blue-600"></div>}
                  Thông tin mở rộng
               </button>
             </div>
@@ -223,7 +218,7 @@ export function ProfilePage() {
             {activeTab === 'services' && (
               <div className="flex flex-col ml-10 border-l border-gray-200 py-1">
                 <button className="text-left px-4 py-2 text-sm relative text-blue-600 font-medium">
-                  <div className="absolute left-[-1px] top-0 bottom-0 w-0.5 bg-blue-600"></div>
+                  <div className="absolute -left-px top-0 bottom-0 w-0.5 bg-blue-600"></div>
                   Dịch vụ công của tôi
                 </button>
               </div>
@@ -299,9 +294,9 @@ export function ProfilePage() {
                   
                   <div className="text-center mt-2">
                     <Button 
-                      onClick={handleMockOcrScan} 
+                      onClick={handleOcrScan} 
                       disabled={isScanning}
-                      className="bg-blue-600 hover:bg-blue-700 text-white min-w-[200px]"
+                      className="bg-blue-600 hover:bg-blue-700 text-white min-w-50"
                     >
                       {isScanning ? (
                         <div className="flex items-center justify-center gap-2">
@@ -388,7 +383,7 @@ export function ProfilePage() {
                   </div>
                   <div>
                     <label className="block text-sm text-gray-600 mb-1">Mã hồ sơ</label>
-                    <input type="text" placeholder="Nhập mã hồ sơ" value={searchCode} onChange={e => setSearchCode(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleSearch()} className="w-full px-4 py-2 border rounded text-sm focus:outline-none focus:border-[#cc6633]" />
+                    <input type="text" placeholder="Nhập mã hồ sơ" value={searchCode} onChange={e => setSearchCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} className="w-full px-4 py-2 border rounded text-sm focus:outline-none focus:border-[#cc6633]" />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-600 mb-1">Trạng thái hồ sơ</label>

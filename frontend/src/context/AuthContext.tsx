@@ -9,7 +9,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (token: string, userData: User) => void;
+  login: (token: string, userData: User, refreshToken?: string) => void;
   logout: () => void;
 }
 
@@ -28,8 +28,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = (token: string, userData: User) => {
+  const login = (token: string, userData: User, refreshToken?: string) => {
     localStorage.setItem('token', token);
+    if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('fullName', userData.fullName || '');
     localStorage.setItem('role', userData.role || 'citizen');
     if (userData.id) localStorage.setItem('userId', userData.id);
@@ -38,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('fullName');
     localStorage.removeItem('role');
     localStorage.removeItem('userId');

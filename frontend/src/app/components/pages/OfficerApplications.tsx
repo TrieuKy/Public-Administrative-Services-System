@@ -60,27 +60,37 @@ export function OfficerApplications() {
   const [actionModal, setActionModal] = useState<{ type: 'supplement' | 'reject' } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [approveLoading, setApproveLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 10;
 
-  const fetchApplications = () => {
-    axiosInstance.get('/officer/applications')
-      .then(res => setApplications(res.data.data.applications || []))
+  const fetchApplications = (p = page) => {
+    const statusParam = selectedTab !== 'all' ? `&status=${selectedTab}` : '';
+    axiosInstance.get(`/officer/applications?page=${p}&limit=${LIMIT}${statusParam}`)
+      .then(res => {
+        const d = res.data.data;
+        setApplications(d.applications || []);
+        setTotal(d.total || 0);
+        setTotalPages(Math.max(1, Math.ceil((d.total || 0) / LIMIT)));
+      })
       .catch(console.error);
   };
 
-  useEffect(() => { fetchApplications(); }, []);
+  useEffect(() => { setPage(1); fetchApplications(1); }, [selectedTab]);
 
   const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString('vi-VN') : '--';
 
   const stats = {
-    pending:    applications.filter(a => a.status === 'PENDING').length,
-    processing: applications.filter(a => a.status === 'PROCESSING').length,
-    completed:  applications.filter(a => a.status === 'COMPLETED').length,
-    needMore:   applications.filter(a => a.status === 'NEED_MORE').length,
-    rejected:   applications.filter(a => a.status === 'REJECTED').length,
-    total:      applications.length,
+    pending:    0,
+    processing: 0,
+    completed:  0,
+    needMore:   0,
+    rejected:   0,
+    total,
   };
 
-  const filteredApplications = applications.filter(app => selectedTab === 'all' || app.status === selectedTab);
+  const filteredApplications = applications;
 
   const renderStatusTag = (status: string) => {
     const map: Record<string, JSX.Element> = {
@@ -249,11 +259,24 @@ export function OfficerApplications() {
 
         {/* Pagination */}
         <div className="p-4 border-t border-gray-100 flex items-center justify-between bg-gray-50">
-          <span className="text-sm text-gray-500">Hiển thị {filteredApplications.length} hồ sơ</span>
-          <div className="flex gap-1">
-            <button className="w-8 h-8 rounded border flex items-center justify-center bg-white hover:bg-gray-50 text-gray-400">&lt;</button>
-            <button className="w-8 h-8 rounded flex items-center justify-center bg-[#b3141b] text-white">1</button>
-            <button className="w-8 h-8 rounded border flex items-center justify-center bg-white hover:bg-gray-50 text-gray-600">&gt;</button>
+          <span className="text-sm text-gray-500">Hiển thị {applications.length} / {total} hồ sơ</span>
+          <div className="flex gap-1 items-center">
+            <button
+              disabled={page <= 1}
+              onClick={() => { const p = page - 1; setPage(p); fetchApplications(p); }}
+              className="w-8 h-8 rounded border flex items-center justify-center bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+            >&lt;</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <button key={p} onClick={() => { setPage(p); fetchApplications(p); }}
+                className={`w-8 h-8 rounded flex items-center justify-center text-sm font-medium ${
+                  p === page ? 'bg-[#b3141b] text-white' : 'border bg-white hover:bg-gray-50 text-gray-600'
+                }`}>{p}</button>
+            ))}
+            <button
+              disabled={page >= totalPages}
+              onClick={() => { const p = page + 1; setPage(p); fetchApplications(p); }}
+              className="w-8 h-8 rounded border flex items-center justify-center bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+            >&gt;</button>
           </div>
         </div>
       </Card>
@@ -311,6 +334,30 @@ export function OfficerApplications() {
                   )}
                 </div>
               </div>
+
+              {/* Extracted Form Data */}
+              {selectedApplication.formData && Object.keys(selectedApplication.formData).length > 0 && (
+                <div className="mb-6">
+                  <h3 className="flex items-center gap-2 font-bold text-blue-800 text-sm tracking-wider uppercase mb-3 border-b pb-2">
+                    <FileText size={18} /> Thông tin trích xuất từ biểu mẫu / OCR
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                    {Object.entries(selectedApplication.formData).map(([key, value]) => {
+                      let label = key;
+                      if (key === 'fullName') label = 'Họ và tên';
+                      if (key === 'idNumber') label = 'CMND/CCCD';
+                      if (key === 'phone') label = 'Số điện thoại';
+                      if (key === 'email') label = 'Email';
+                      return (
+                        <div key={key}>
+                          <p className="text-xs text-blue-600 uppercase font-semibold mb-1">{label}</p>
+                          <p className="font-medium text-gray-900">{String(value) || '--'}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* History */}
               <div className="mb-6">

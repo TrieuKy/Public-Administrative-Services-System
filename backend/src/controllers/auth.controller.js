@@ -14,9 +14,26 @@ exports.register = async (req, res) => {
     const verifyToken = crypto.randomBytes(32).toString('hex');
     const user = await User.create({ fullName, cccd, email, password, verifyToken });
 
-    await emailService.sendVerificationEmail(email, verifyToken);
+    // Gửi email xác thực — bắt lỗi riêng để không block đăng ký
+    let emailSent = false;
+    try {
+      await emailService.sendVerificationEmail(email, verifyToken);
+      emailSent = true;
+    } catch (emailErr) {
+      console.error('[Email] Không thể gửi email xác thực:', emailErr.message);
+      // In link kích hoạt ra console để developer có thể test thủ công
+      const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verifyToken}`;
+      console.log('\n=================================================');
+      console.log('⚠️  SMTP chưa cấu hình — Link xác thực thủ công:');
+      console.log(verifyUrl);
+      console.log('=================================================\n');
+    }
 
-    return success(res, { userId: user.id }, 'Đăng ký thành công, vui lòng xác nhận email', 201);
+    const message = emailSent
+      ? 'Đăng ký thành công, vui lòng kiểm tra email để xác nhận tài khoản'
+      : 'Đăng ký thành công! Email xác thực gặp sự cố — vui lòng liên hệ admin để kích hoạt tài khoản';
+
+    return success(res, { userId: user.id }, message, 201);
   } catch (err) {
     return error(res, err.message, 500);
   }
@@ -97,30 +114,36 @@ exports.updateMe = async (req, res) => {
     if (!user) return error(res, 'Người dùng không tồn tại', 404);
     
     const { 
-      fullName, dob, phone, gender, pob, hometown, address, 
+      fullName, dob, phone, gender, pob, hometown, address, cccd,
       taxCode, insuranceCode, passport, driverLicense,
       nationality, issueDate, expiryDate, issuePlace 
     } = req.body;
 
     await user.update({
-      fullName: fullName || user.fullName,
-      dob: dob !== undefined ? dob : user.dob,
-      phone: phone !== undefined ? phone : user.phone,
-      gender: gender !== undefined ? gender : user.gender,
-      pob: pob !== undefined ? pob : user.pob,
-      hometown: hometown !== undefined ? hometown : user.hometown,
-      address: address !== undefined ? address : user.address,
-      taxCode: taxCode !== undefined ? taxCode : user.taxCode,
-      insuranceCode: insuranceCode !== undefined ? insuranceCode : user.insuranceCode,
-      passport: passport !== undefined ? passport : user.passport,
-      driverLicense: driverLicense !== undefined ? driverLicense : user.driverLicense,
-      nationality: nationality !== undefined ? nationality : user.nationality,
-      issueDate: issueDate !== undefined ? issueDate : user.issueDate,
-      expiryDate: expiryDate !== undefined ? expiryDate : user.expiryDate,
-      issuePlace: issuePlace !== undefined ? issuePlace : user.issuePlace
+      fullName:       fullName        !== undefined ? fullName        : user.fullName,
+      dob:            dob             !== undefined ? dob             : user.dob,
+      phone:          phone           !== undefined ? phone           : user.phone,
+      gender:         gender          !== undefined ? gender          : user.gender,
+      pob:            pob             !== undefined ? pob             : user.pob,
+      hometown:       hometown        !== undefined ? hometown        : user.hometown,
+      address:        address         !== undefined ? address         : user.address,
+      cccd:           cccd            !== undefined ? cccd            : user.cccd,
+      taxCode:        taxCode         !== undefined ? taxCode         : user.taxCode,
+      insuranceCode:  insuranceCode   !== undefined ? insuranceCode   : user.insuranceCode,
+      passport:       passport        !== undefined ? passport        : user.passport,
+      driverLicense:  driverLicense   !== undefined ? driverLicense   : user.driverLicense,
+      nationality:    nationality     !== undefined ? nationality     : user.nationality,
+      issueDate:      issueDate       !== undefined ? issueDate       : user.issueDate,
+      expiryDate:     expiryDate      !== undefined ? expiryDate      : user.expiryDate,
+      issuePlace:     issuePlace      !== undefined ? issuePlace      : user.issuePlace,
     });
 
-    return success(res, user, 'Cập nhật thông tin thành công');
+    // Reload để trả về dữ liệu mới nhất
+    const updatedUser = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password', 'verifyToken'] }
+    });
+
+    return success(res, updatedUser, 'Cập nhật thông tin thành công');
   } catch (err) {
     return error(res, err.message, 500);
   }

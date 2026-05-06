@@ -14,22 +14,6 @@ const PERIODS = [
   { key: 'year',   label: 'Cả năm 2026' },
 ];
 
-const PIE_DATA = [
-  { name: 'Rất hài lòng',  value: 62, color: '#388e3c' },
-  { name: 'Hài lòng',      value: 28, color: '#f57c00' },
-  { name: 'Bình thường',   value: 7,  color: '#757575' },
-  { name: 'Không hài lòng',value: 3,  color: '#d32f2f' },
-];
-
-const TREND_DATA = [
-  { name: 'T1/W1', trucTuyen: 40, taiQuay: 5 }, { name: 'T1/W2', trucTuyen: 50, taiQuay: 8 },
-  { name: 'T1/W3', trucTuyen: 45, taiQuay: 7 }, { name: 'T1/W4', trucTuyen: 55, taiQuay: 6 },
-  { name: 'T2/W1', trucTuyen: 65, taiQuay: 9 }, { name: 'T2/W2', trucTuyen: 70, taiQuay: 10 },
-  { name: 'T2/W3', trucTuyen: 75, taiQuay: 11 }, { name: 'T2/W4', trucTuyen: 82, taiQuay: 10 },
-  { name: 'T3/W1', trucTuyen: 80, taiQuay: 11 }, { name: 'T3/W2', trucTuyen: 85, taiQuay: 9 },
-  { name: 'T3/W3', trucTuyen: 83, taiQuay: 8 },  { name: 'T3/W4', trucTuyen: 90, taiQuay: 12 },
-];
-
 export function OfficerReports() {
   const [data, setData] = useState<any>(null);
   const [period, setPeriod] = useState('q1');
@@ -200,27 +184,35 @@ export function OfficerReports() {
             <h3 className="text-lg font-bold text-gray-800">Mức độ hài lòng</h3>
             <p className="text-sm text-gray-500">Khảo sát công dân — {PERIODS.find(p => p.key === period)?.label}</p>
           </div>
-          <div className="h-56 flex justify-center items-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={PIE_DATA} innerRadius={60} outerRadius={85} paddingAngle={2} dataKey="value" stroke="none">
-                  {PIE_DATA.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                </Pie>
-                <RechartsTooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="space-y-3 mt-4">
-            {PIE_DATA.map((item, index) => (
-              <div key={index} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-gray-700">{item.name}</span>
-                </div>
-                <span className="text-gray-900 font-bold">{item.value}%</span>
+          {data.satisfactionData && data.satisfactionData.length > 0 ? (
+            <>
+              <div className="h-56 flex justify-center items-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={data.satisfactionData} innerRadius={60} outerRadius={85} paddingAngle={2} dataKey="value" stroke="none">
+                      {data.satisfactionData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                    </Pie>
+                    <RechartsTooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            ))}
-          </div>
+              <div className="space-y-3 mt-4">
+                {data.satisfactionData.map((item: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-gray-700">{item.name}</span>
+                    </div>
+                    <span className="text-gray-900 font-bold">{item.value}%</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-56 text-gray-400">
+              <p className="text-sm">Chưa có đánh giá trong kỳ này</p>
+            </div>
+          )}
         </Card>
       </div>
 
@@ -228,21 +220,25 @@ export function OfficerReports() {
       <Card className="p-5 shadow-sm">
         <div className="mb-6">
           <h3 className="text-lg font-bold text-gray-800">Xu hướng nộp hồ sơ: Trực tuyến vs Tại quầy</h3>
-          <p className="text-sm text-gray-500">Theo tuần — Q1 đến Q2/2026</p>
+          <p className="text-sm text-gray-500">Theo tuần — {PERIODS.find(p => p.key === period)?.label}</p>
         </div>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={TREND_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
-              <RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
-              <Line type="monotone" dataKey="trucTuyen" name="Trực tuyến" stroke="#d32f2f" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-              <Line type="monotone" dataKey="taiQuay" name="Tại quầy" stroke="#f59e0b" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {data.trendData && data.trendData.length > 0 ? (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data.trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
+                <RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                <Line type="monotone" dataKey="trucTuyen" name="Trực tuyến" stroke="#d32f2f" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="taiQuay" name="Tại quầy" stroke="#f59e0b" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Không có dữ liệu xu hướng trong kỳ này</div>
+        )}
       </Card>
     </div>
   );
