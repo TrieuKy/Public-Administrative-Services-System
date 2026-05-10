@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Search, Filter, Eye, User, Calendar, CheckCircle, XCircle, AlertCircle, FileText, Download, RefreshCw, X } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Search, Filter, Eye, User, Calendar, CheckCircle, XCircle, AlertCircle, FileText, Download, RefreshCw, X, Sparkles } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import axiosInstance from '../../../utils/axiosInstance';
@@ -64,6 +64,8 @@ export function OfficerApplications() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const LIMIT = 10;
+  // AI Score cache: { [appId]: { overallScore, recommendation, recommendationLevel, loading, summary } }
+  const [aiScores, setAiScores] = useState<Record<number, any>>({});
 
   const fetchApplications = (p = page) => {
     const statusParam = selectedTab !== 'all' ? `&status=${selectedTab}` : '';
@@ -77,7 +79,25 @@ export function OfficerApplications() {
       .catch(console.error);
   };
 
+  // Gọi AI phân tích 1 hồ sơ (non-blocking). force=true để phân tích lại.
+  const fetchAiScore = useCallback(async (appId: number, force = false) => {
+    if (!force && aiScores[appId]) return; // đã có cache, bỏ qua
+    setAiScores(prev => ({ ...prev, [appId]: { loading: true } }));
+    try {
+      const res = await axiosInstance.post(`/ai/analyze-application/${appId}`);
+      const d = res.data.data;
+      setAiScores(prev => ({ ...prev, [appId]: { ...d, loading: false } }));
+    } catch {
+      setAiScores(prev => ({ ...prev, [appId]: { loading: false, overallScore: null } }));
+    }
+  }, [aiScores]);
+
   useEffect(() => { setPage(1); fetchApplications(1); }, [selectedTab]);
+
+  // Khi danh sách hồ sơ tải xong, tự động phân tích tất cả
+  useEffect(() => {
+    applications.forEach(app => fetchAiScore(app.id));
+  }, [applications]);
 
   const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString('vi-VN') : '--';
 
@@ -231,9 +251,36 @@ export function OfficerApplications() {
                   </td>
                   <td className="p-4 text-sm text-gray-600 font-medium">{formatDate(app.deadline)}</td>
                   <td className="p-4">
-                    <span className="text-sm font-medium text-green-700">Đề xuất: Duyệt</span>
-                    <div className="w-16 h-1 bg-gray-200 rounded-full mt-1"><div className="h-full bg-green-500 w-[95%]" /></div>
-                    <span className="text-[10px] text-gray-400">95%</span>
+                    {(() => {
+                      const ai = aiScores[app.id];
+                      if (!ai || ai.loading) {
+                        return (
+                          <div className="flex items-center gap-2 text-gray-400">
+                            <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin"/>
+                            <span className="text-xs">Đang phân tích...</span>
+                          </div>
+                        );
+                      }
+                      if (ai.overallScore === null) {
+                        return <span className="text-xs text-gray-400 italic">Không phân tích được</span>;
+                      }
+                      const score = ai.overallScore;
+                      const level = ai.recommendationLevel;
+                      const color = level === 'approve' ? 'text-green-700' : level === 'reject' ? 'text-red-600' : level === 'supplement' ? 'text-orange-600' : 'text-blue-600';
+                      const barColor = level === 'approve' ? 'bg-green-500' : level === 'reject' ? 'bg-red-500' : level === 'supplement' ? 'bg-orange-500' : 'bg-blue-500';
+                      const label = ai.recommendation || 'Cần kiểm tra';
+                      return (
+                        <div title={ai.summary || ''}>
+                          <span className={`text-sm font-semibold flex items-center gap-1 ${color}`}>
+                            <Sparkles size={12}/> {label}
+                          </span>
+                          <div className="w-20 h-1.5 bg-gray-200 rounded-full mt-1.5">
+                            <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${score}%` }}/>
+                          </div>
+                          <span className="text-[11px] text-gray-500 font-medium">{score}% tin cậy</span>
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="p-4">{renderStatusTag(app.status)}</td>
                   <td className="p-4">
@@ -358,6 +405,98 @@ export function OfficerApplications() {
                   </div>
                 </div>
               )}
+
+              {/* AI Analysis Panel */}
+              {(() => {
+                const ai = aiScores[selectedApplication.id];
+                return (
+                  <div className="mb-6">
+                    <h3 className="flex items-center gap-2 font-bold text-purple-800 text-sm tracking-wider uppercase mb-3 border-b pb-2">
+                      <Sparkles size={18} /> Phân tích AI
+                    </h3>
+                    {!ai || ai.loading ? (
+                      <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-xl text-purple-700 text-sm">
+                        <div className="w-5 h-5 border-2 border-purple-400 border-t-purple-700 rounded-full animate-spin"/>
+                        AI đang phân tích tài liệu hồ sơ...
+                      </div>
+                    ) : ai.overallScore === null ? (
+                      <p className="text-sm text-gray-500 italic p-4 bg-gray-50 rounded-xl">Không thể phân tích. File tài liệu có thể không còn trên đĩa.</p>
+                    ) : (
+                      <div className="bg-purple-50 rounded-xl border border-purple-100 p-4 space-y-4">
+                        {/* Overall score */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-purple-500 uppercase font-semibold mb-1">Độ tin cậy tổng thể</p>
+                            <div className="flex items-center gap-3">
+                              <span className="text-3xl font-extrabold text-purple-700">{ai.overallScore}%</span>
+                              <span className={`text-sm font-bold px-3 py-1 rounded-full ${
+                                ai.recommendationLevel === 'approve' ? 'bg-green-100 text-green-700' :
+                                ai.recommendationLevel === 'reject'  ? 'bg-red-100 text-red-700' :
+                                ai.recommendationLevel === 'supplement' ? 'bg-orange-100 text-orange-700' :
+                                'bg-blue-100 text-blue-700'
+                              }`}>{ai.recommendation}</span>
+                            </div>
+                          </div>
+                          <button onClick={() => fetchAiScore(selectedApplication.id, true)} className="text-xs text-purple-600 hover:underline flex items-center gap-1">
+                            <RefreshCw size={12}/> Phân tích lại
+                          </button>
+                        </div>
+
+                        {/* Thanh progress */}
+                        <div className="w-full h-2.5 bg-purple-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              ai.overallScore >= 80 ? 'bg-green-500' :
+                              ai.overallScore >= 60 ? 'bg-orange-400' : 'bg-red-500'
+                            }`}
+                            style={{ width: `${ai.overallScore}%` }}
+                          />
+                        </div>
+
+                        {/* Summary */}
+                        {ai.summary && <p className="text-sm text-gray-700 italic border-l-4 border-purple-300 pl-3">{ai.summary}</p>}
+
+                        {/* Per-document scores */}
+                        {ai.docAnalyses?.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold text-purple-600 uppercase">Chi tiết từng tài liệu:</p>
+                            {ai.docAnalyses.map((d: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-purple-100">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-800 truncate">{d.docType}</p>
+                                  {d.message && <p className="text-xs text-gray-500 truncate">{d.message}</p>}
+                                </div>
+                                <div className="flex items-center gap-2 ml-3 shrink-0">
+                                  <div className="w-16 h-1.5 bg-gray-200 rounded-full">
+                                    <div className={`h-full rounded-full ${
+                                      d.score >= 80 ? 'bg-green-500' : d.score >= 60 ? 'bg-orange-400' : 'bg-red-500'
+                                    }`} style={{ width: `${d.score}%` }}/>
+                                  </div>
+                                  <span className={`text-xs font-bold w-10 text-right ${
+                                    d.score >= 80 ? 'text-green-700' : d.score >= 60 ? 'text-orange-600' : 'text-red-600'
+                                  }`}>{d.score}%</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Missing docs */}
+                        {ai.missingDocs?.length > 0 && (
+                          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                            <p className="text-xs font-semibold text-orange-700 uppercase mb-1">Thiếu giấy tờ:</p>
+                            <ul className="list-disc list-inside space-y-0.5">
+                              {ai.missingDocs.map((m: string, i: number) => (
+                                <li key={i} className="text-sm text-orange-700">{m}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* History */}
               <div className="mb-6">

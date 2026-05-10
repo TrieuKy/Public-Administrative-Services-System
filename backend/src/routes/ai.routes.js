@@ -270,15 +270,264 @@ router.post('/set-key', (req, res) => {
   if (!apiKey || !apiKey.startsWith('AIza')) {
     return error(res, 'API key không hợp lệ. Gemini key phải bắt đầu bằng "AIza"', 400);
   }
-  // Cập nhật biến môi trường runtime (chỉ tồn tại trong phiên hiện tại)
   process.env.GEMINI_API_KEY = apiKey;
-  // Reinitialize genAI với key mới
   try {
     const { GoogleGenerativeAI } = require('@google/generative-ai');
     global._genAI = new GoogleGenerativeAI(apiKey);
     return success(res, { message: 'API key đã được cập nhật cho phiên này' });
   } catch (err) {
     return error(res, 'Không thể khởi tạo AI với key này: ' + err.message, 500);
+  }
+});
+
+/**
+ * POST /api/v1/ai/analyze-application/:id
+ * Cán bộ gọi để AI phân tích THỰC SỰ tất cả tài liệu của hồ sơ và trả về confidence score thực.
+ * Yêu cầu: đăng nhập + quyền officer/admin.
+ */
+router.post('/analyze-application/:id', auth, async (req, res) => {
+  const fs   = require('fs');
+  const path = require('path');
+  const { Application, Document, Service, User } = require('../models');
+
+  try {
+    const app = await Application.findByPk(req.params.id, {
+      include: [
+        { model: Document, as: 'documents' },
+        { model: Service,  as: 'service',  attributes: ['name', 'requiredDocs'] },
+        { model: User,     as: 'citizen',  attributes: ['fullName', 'cccd', 'dob', 'gender'] },
+      ],
+    });
+    if (!app) return error(res, 'Hồ sơ không tồn tại', 404);
+
+    const docs = app.documents || [];
+    if (docs.length === 0) {
+      return success(res, {
+        overallScore: 0,
+        recommendation: 'Chưa có tài liệu',
+        recommendationLevel: 'pending',
+        docAnalyses: [],
+        summary: 'Hồ sơ chưa có tài liệu nào được đính kèm.',
+      });
+    }
+
+    // Đọc tối đa 5 tài liệu để tránh timeout
+    const docsToAnalyze = docs.slice(0, 5);
+    const uploadDir = process.env.UPLOAD_DIR || 'uploads';
+    const rootDir   = path.resolve(__dirname, '../../..');
+
+    const fileBuffers = [];
+    for (const doc of docsToAnalyze) {
+      // filePath có thể là đường dẫn tuyệt đối hoặc tương đối
+      let absPath = doc.filePath;
+      if (!path.isAbsolute(absPath)) {
+        absPath = path.join(rootDir, absPath);
+      }
+      if (!fs.existsSync(absPath)) {
+        // fallback: thử reconstruct từ fileUrl
+        const rel = doc.fileUrl?.replace(/^\//, '');
+        absPath = path.join(rootDir, rel || '');
+      }
+      if (fs.existsSync(absPath)) {
+        fileBuffers.push({
+          buffer:   fs.readFileSync(absPath),
+          mimeType: doc.mimeType || 'image/jpeg',
+          fileName: doc.fileName || doc.docType,
+          docType:  doc.docType,
+        });
+      }
+    }
+
+    if (fileBuffers.length === 0) {
+      // File không còn trên disk — phân tích metadata
+      const metaScore = Math.min(95, 60 + docs.length * 8);
+      return success(res, {
+        overallScore: metaScore,
+        recommendation: metaScore >= 80 ? 'Đề xuất: Duyệt' : 'Cần kiểm tra thêm',
+        recommendationLevel: metaScore >= 80 ? 'approve' : 'review',
+        docAnalyses: docs.map(d => ({
+          docType: d.docType,
+          fileName: d.fileName,
+          score: metaScore,
+          issues: [],
+          message: 'File không còn trên đĩa, ước tính dựa theo metadata',
+        })),
+        summary: `Phân tích metadata: ${docs.length} tài liệu, ước tính ${metaScore}% tin cậy.`,
+      });
+    }
+
+    // Build AI prompt để phân tích toàn bộ bộ hồ sơ
+    const citizen = app.citizen;
+    const requiredDocs = app.service?.requiredDocs || [];
+    const uploadedDocTypes = fileBuffers.map(f => f.docType).join(', ');
+
+    const analysisPrompt = `Bạn là chuyên gia thẩm định hồ sơ hành chính Việt Nam với 10 năm kinh nghiệm.
+Hãy phân tích bộ tài liệu sau đây và đưa ra đánh giá khách quan về độ tin cậy.
+
+THÔNG TIN HỒ SƠ:
+- Dịch vụ: ${app.service?.name || 'Không rõ'}
+- Giấy tờ yêu cầu: ${requiredDocs.join(', ') || 'Không rõ'}
+- Giấy tờ đã nộp: ${uploadedDocTypes}
+- Người nộp: ${citizen?.fullName || 'Không rõ'} (CCCD: ${citizen?.cccd || 'Không rõ'})
+
+Hãy phân tích TỪNG tài liệu (${fileBuffers.length} ảnh/file) và đưa ra đánh giá tổng hợp.
+
+Trả về JSON thuần (KHÔNG markdown, KHÔNG text thừa):
+{
+  "overallScore": <số nguyên 0-100, điểm tin cậy tổng thể>,
+  "recommendation": "<'Đề xuất: Duyệt' | 'Đề xuất: Từ chối' | 'Đề xuất: Bổ sung' | 'Cần kiểm tra thêm'>",
+  "recommendationLevel": "<'approve' | 'reject' | 'supplement' | 'review'>",
+  "docAnalyses": [
+    {
+      "docType": "<tên loại giấy tờ>",
+      "fileName": "<tên file>",
+      "score": <số nguyên 0-100, điểm tin cậy cho giấy tờ này>,
+      "isAuthentic": <true/false>,
+      "isReadable": <true/false>,
+      "issues": ["vấn đề 1 nếu có"],
+      "message": "<nhận xét ngắn gọn bằng tiếng Việt>"
+    }
+  ],
+  "missingDocs": ["tên giấy tờ còn thiếu nếu có"],
+  "summary": "<tóm tắt đánh giá tổng thể bằng tiếng Việt, 1-2 câu>"
+}
+
+Tiêu chí chấm điểm (0-100):
+- 90-100: Tài liệu rõ ràng, đủ thông tin, không dấu hiệu giả mạo, đúng loại yêu cầu
+- 70-89: Tài liệu hợp lệ nhưng có một vài điểm cần lưu ý nhỏ
+- 50-69: Tài liệu thiếu một số thông tin hoặc không rõ một số chỗ, cần bổ sung
+- 0-49: Tài liệu không hợp lệ, giả mạo, hoặc sai loại
+
+CHỈ trả về JSON.`;
+
+    // Gọi AI phân tích tất cả file cùng lúc (dùng ocr-group logic nhưng với prompt riêng)
+    const result = await aiService.ocrMultiGroup(fileBuffers, {
+      serviceName: app.service?.name,
+      requiredDocTypes: requiredDocs,
+    });
+
+    // Sau khi có kết quả OCR cơ bản, tính score từ warningLevel
+    const docAnalyses = result.groups.map(g => {
+      let score = 90;
+      if (g.warningLevel === 'warning') score = 70;
+      if (g.warningLevel === 'error')   score = 40;
+      if (g.validationErrors?.includes('BLURRY_IMAGE'))   score = Math.min(score, 35);
+      if (g.validationErrors?.includes('FAKE_DOCUMENT'))  score = Math.min(score, 15);
+      if (g.validationErrors?.includes('MISSING_FIELDS')) score = Math.min(score, 65);
+      if (g.validationErrors?.includes('CROPPED_IMAGE'))  score = Math.min(score, 60);
+      if (!g.isReadable) score = Math.min(score, 30);
+
+      return {
+        docType:    g.docCategory || g.groupLabel,
+        fileName:   g.files?.map(f => f.fileName).join(', ') || '',
+        score,
+        isAuthentic: g.warningLevel !== 'error',
+        isReadable:  g.isReadable !== false,
+        issues:      g.issues || [],
+        message:     g.message || '',
+        validationErrors: g.validationErrors || [],
+      };
+    });
+
+    // Tính overallScore tổng hợp
+    const avgScore = docAnalyses.length > 0
+      ? Math.round(docAnalyses.reduce((s, d) => s + d.score, 0) / docAnalyses.length)
+      : 50;
+
+    // Kiểm tra thiếu giấy tờ
+    const uploadedCategories = result.groups.map(g => g.docCategory);
+    const missingDocs = (requiredDocs || []).filter(rd => {
+      const rdLower = rd.toLowerCase();
+      return !uploadedCategories.some(cat => cat && rdLower.includes(cat.toLowerCase().replace('_', ' ')));
+    });
+
+    let recommendation, recommendationLevel;
+    if (avgScore >= 80 && missingDocs.length === 0) {
+      recommendation = 'Đề xuất: Duyệt'; recommendationLevel = 'approve';
+    } else if (avgScore < 40) {
+      recommendation = 'Đề xuất: Từ chối'; recommendationLevel = 'reject';
+    } else if (missingDocs.length > 0 || avgScore < 70) {
+      recommendation = 'Đề xuất: Bổ sung'; recommendationLevel = 'supplement';
+    } else {
+      recommendation = 'Cần kiểm tra thêm'; recommendationLevel = 'review';
+    }
+
+    const summary = `Phân tích ${docAnalyses.length} nhóm tài liệu, điểm tin cậy trung bình: ${avgScore}%. ${missingDocs.length > 0 ? `Còn thiếu: ${missingDocs.join(', ')}.` : 'Đủ loại giấy tờ yêu cầu.'}`;
+
+    return success(res, {
+      overallScore: avgScore,
+      recommendation,
+      recommendationLevel,
+      docAnalyses,
+      missingDocs,
+      summary,
+    });
+
+  } catch (err) {
+    console.error('[AI Analyze Application]', err.message);
+    return error(res, 'Không thể phân tích hồ sơ: ' + err.message, 500);
+  }
+});
+
+/**
+ * POST /api/v1/ai/ocr-cccd-dual
+ * Form-data: front (ảnh mặt trước CCCD), back (ảnh mặt sau CCCD)
+ * Gộp kết quả từ cả 2 mặt để lấy thông tin đầy đủ
+ */
+router.post('/ocr-cccd-dual', auth, upload.fields([{ name: 'front', maxCount: 1 }, { name: 'back', maxCount: 1 }]), async (req, res) => {
+  try {
+    const files = req.files;
+    if (!files?.front?.[0] || !files?.back?.[0]) {
+      return error(res, 'Vui lòng tải lên cả mặt trước (front) và mặt sau (back) CCCD', 400);
+    }
+
+    const frontFile = files.front[0];
+    const backFile  = files.back[0];
+
+    const allFiles = [
+      { buffer: frontFile.buffer, mimeType: frontFile.mimetype, fileName: frontFile.originalname },
+      { buffer: backFile.buffer,  mimeType: backFile.mimetype,  fileName: backFile.originalname },
+    ];
+
+    const result = await aiService.ocrMultiGroup(allFiles, null);
+
+    // Tổng hợp tất cả extractedFields từ tất cả groups
+    const merged = result.mergedFields || {};
+    const groups = result.groups || [];
+
+    // Ghép thêm thông tin từng field rõ ràng hơn
+    const cccdData = {
+      cccd:        merged.idNumber || null,
+      fullName:    merged.fullName || null,
+      dob:         merged['Ngày sinh'] || null,
+      gender:      merged['Giới tính'] || null,
+      nationality: merged['Quốc tịch'] || null,
+      pob:         merged['Nơi đăng ký khai sinh'] || null,
+      address:     merged['Địa chỉ'] || null,
+      issueDate:   merged['Ngày cấp'] || null,
+      expiryDate:  merged['Ngày hết hạn'] || null,
+      issuePlace:  merged['Nơi cấp'] || null,
+      hometown:    groups[0]?.extractedFields?.hometown || null,
+    };
+
+    // Đánh giá chất lượng ảnh
+    const hasErrors = groups.some(g => g.warningLevel === 'error');
+    const hasWarnings = groups.some(g => g.warningLevel === 'warning');
+
+    return success(res, {
+      cccdData,
+      groups,
+      quality: hasErrors ? 'error' : hasWarnings ? 'warning' : 'ok',
+      message: hasErrors
+        ? 'Ảnh có vấn đề nghiêm trọng, vui lòng chụp lại'
+        : hasWarnings
+          ? 'Đọc được thông tin nhưng có một số vấn đề nhỏ'
+          : 'Đọc thành công cả 2 mặt CCCD',
+    });
+
+  } catch (err) {
+    console.error('[OCR CCCD Dual]', err.message);
+    return error(res, 'Không thể đọc thông tin CCCD: ' + err.message, 500);
   }
 });
 

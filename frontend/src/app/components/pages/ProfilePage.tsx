@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, FileText, CheckCircle, XCircle, AlertCircle, Clock, ShieldCheck, CreditCard, ChevronRight, UserCircle, Settings, Upload, Receipt } from 'lucide-react';
+import { User, FileText, CheckCircle, XCircle, AlertCircle, Clock, ShieldCheck, CreditCard, ChevronRight, UserCircle, Settings, Upload, Receipt, Eye, RefreshCw, Save } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { ApplicationDetailModal } from './ApplicationDetailModal';
@@ -11,43 +11,78 @@ export function ProfilePage() {
   const [isScanning, setIsScanning] = useState(false);
   const [frontImage, setFrontImage] = useState<File | null>(null);
   const [backImage, setBackImage] = useState<File | null>(null);
+  const [frontPreview, setFrontPreview] = useState<string | null>(null);
+  const [backPreview, setBackPreview] = useState<string | null>(null);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [editPhoneValue, setEditPhoneValue] = useState('');
+  // OCR result preview (before saving)
+  const [ocrResult, setOcrResult] = useState<any>(null);
+  const [ocrQuality, setOcrQuality] = useState<'ok' | 'warning' | 'error' | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Rating states
   const [ratingApp, setRatingApp] = useState<any>(null);
   const [ratingValue, setRatingValue] = useState(5);
-  
+
+  // Handle file selection with preview
+  const handleFrontChange = (file: File) => {
+    setFrontImage(file);
+    setOcrResult(null);
+    const url = URL.createObjectURL(file);
+    setFrontPreview(url);
+  };
+
+  const handleBackChange = (file: File) => {
+    setBackImage(file);
+    setOcrResult(null);
+    const url = URL.createObjectURL(file);
+    setBackPreview(url);
+  };
+
   const handleOcrScan = async () => {
     if (!frontImage || !backImage) {
-      alert('Lỗi: Yêu cầu tải lên đầy đủ hai mặt (Trước & Sau) của thẻ Căn cước công dân!');
+      alert('Vui lòng tải lên đầy đủ cả mặt trước và mặt sau CCCD!');
       return;
     }
     if (!frontImage.type.startsWith('image/') || !backImage.type.startsWith('image/')) {
-      alert('Lỗi: Định dạng file không hợp lệ! Vui lòng chỉ tải lên tài liệu hình ảnh (JPG, PNG...).');
+      alert('Định dạng file không hợp lệ! Vui lòng chỉ tải lên file hình ảnh (JPG, PNG...).');
       return;
     }
 
     setIsScanning(true);
+    setOcrResult(null);
     try {
-      // Gửi ảnh mặt trước lên Gemini Vision để đọc thông tin CCCD
-      const frontForm = new FormData();
-      frontForm.append('image', frontImage);
-      const ocrRes = await axiosInstance.post('/ai/ocr-cccd', frontForm, {
+      const form = new FormData();
+      form.append('front', frontImage);
+      form.append('back', backImage);
+      const res = await axiosInstance.post('/ai/ocr-cccd-dual', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-
-      const ocrData = ocrRes.data.data;
-
-      // Cập nhật thông tin vào hồ sơ người dùng
-      const updateRes = await axiosInstance.put('/auth/me', ocrData);
-      setProfile(updateRes.data.data);
-      alert('Quét OCR thành công! Thông tin CCCD đã được điền tự động.');
+      const data = res.data.data;
+      setOcrResult(data.cccdData);
+      setOcrQuality(data.quality);
     } catch (err: any) {
       console.error(err);
       alert('Không thể đọc thông tin từ ảnh: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const handleConfirmSave = async () => {
+    if (!ocrResult) return;
+    setIsSaving(true);
+    try {
+      const updateRes = await axiosInstance.put('/auth/me', ocrResult);
+      setProfile(updateRes.data.data);
+      setOcrResult(null);
+      setFrontImage(null); setBackImage(null);
+      setFrontPreview(null); setBackPreview(null);
+      alert('Đã cập nhật thông tin định danh thành công!');
+    } catch (err: any) {
+      alert('Lỗi cập nhật: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsSaving(false);
     }
   };
   
@@ -257,57 +292,129 @@ export function ProfilePage() {
               </div>
               <div className="p-6">
                 {/* Khu vực OCR Scanner */}
-                <div className="bg-gray-50 border border-gray-200 rounded p-6 mb-6">
-                  <h3 className="text-lg font-bold text-gray-800 mb-2 border-b pb-2">Yêu cầu định danh trực tuyến</h3>
-                  <p className="text-sm text-gray-600 mb-4">Vui lòng tải lên ảnh mặt trước và mặt sau CCCD để hệ thống tự động quét bóc tách và điền thông tin.</p>
-                  
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6">
+                  <h3 className="text-lg font-bold text-gray-800 mb-1 border-b pb-2 flex items-center gap-2">
+                    <ShieldCheck size={20} className="text-blue-600" /> Định danh trực tuyến bằng CCCD
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-4 mt-2">Tải lên ảnh chụp <strong>mặt trước</strong> và <strong>mặt sau</strong> CCCD. AI sẽ tự động đọc và điền thông tin — bạn xem lại trước khi lưu.</p>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <label className="border-2 border-dashed border-gray-300 rounded p-6 text-center hover:border-blue-500 transition cursor-pointer bg-white relative">
-                      <input type="file" accept="image/*" onChange={e => { if(e.target.files) setFrontImage(e.target.files[0]) } } className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                      {frontImage ? (
-                        <div className="text-green-600 font-medium text-sm flex flex-col items-center">
-                          <CheckCircle className="mb-2" size={32} />
-                          Đã tải ảnh: {frontImage.name}
-                        </div>
-                      ) : (
-                        <>
-                          <Upload className="mx-auto text-gray-400 mb-2" size={32} />
-                          <div className="font-medium text-sm text-gray-700">Tải lên Mặt trước CCCD</div>
-                        </>
-                      )}
-                    </label>
-                    <label className="border-2 border-dashed border-gray-300 rounded p-6 text-center hover:border-blue-500 transition cursor-pointer bg-white relative">
-                      <input type="file" accept="image/*" onChange={e => { if(e.target.files) setBackImage(e.target.files[0]) } } className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                      {backImage ? (
-                        <div className="text-green-600 font-medium text-sm flex flex-col items-center">
-                          <CheckCircle className="mb-2" size={32} />
-                          Đã tải ảnh: {backImage.name}
-                        </div>
-                      ) : (
-                        <>
-                          <Upload className="mx-auto text-gray-400 mb-2" size={32} />
-                          <div className="font-medium text-sm text-gray-700">Tải lên Mặt sau CCCD</div>
-                        </>
-                      )}
-                    </label>
+                    {/* Mặt trước */}
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Mặt trước CCCD</p>
+                      <label className={`relative flex flex-col items-center justify-center border-2 border-dashed rounded-lg cursor-pointer transition min-h-[140px] overflow-hidden ${
+                        frontImage ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-white hover:border-blue-400'
+                      }`}>
+                        <input type="file" accept="image/*" onChange={e => { if(e.target.files?.[0]) handleFrontChange(e.target.files[0]); }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        {frontPreview ? (
+                          <>
+                            <img src={frontPreview} alt="Mặt trước CCCD" className="w-full h-36 object-cover rounded" />
+                            <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <CheckCircle size={12}/> Đã chọn
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center py-6 text-gray-400">
+                            <Upload size={32} className="mb-2" />
+                            <span className="text-sm font-medium text-gray-600">Tải lên mặt trước</span>
+                            <span className="text-xs text-gray-400 mt-1">JPG, PNG, WebP</span>
+                          </div>
+                        )}
+                      </label>
+                    </div>
+
+                    {/* Mặt sau */}
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Mặt sau CCCD</p>
+                      <label className={`relative flex flex-col items-center justify-center border-2 border-dashed rounded-lg cursor-pointer transition min-h-[140px] overflow-hidden ${
+                        backImage ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-white hover:border-blue-400'
+                      }`}>
+                        <input type="file" accept="image/*" onChange={e => { if(e.target.files?.[0]) handleBackChange(e.target.files[0]); }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        {backPreview ? (
+                          <>
+                            <img src={backPreview} alt="Mặt sau CCCD" className="w-full h-36 object-cover rounded" />
+                            <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <CheckCircle size={12}/> Đã chọn
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center py-6 text-gray-400">
+                            <Upload size={32} className="mb-2" />
+                            <span className="text-sm font-medium text-gray-600">Tải lên mặt sau</span>
+                            <span className="text-xs text-gray-400 mt-1">Chứa QR code, vân tay</span>
+                          </div>
+                        )}
+                      </label>
+                    </div>
                   </div>
-                  
-                  <div className="text-center mt-2">
-                    <Button 
-                      onClick={handleOcrScan} 
-                      disabled={isScanning}
-                      className="bg-blue-600 hover:bg-blue-700 text-white min-w-50"
+
+                  <div className="text-center mt-3">
+                    <Button
+                      onClick={handleOcrScan}
+                      disabled={isScanning || !frontImage || !backImage}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-8 disabled:opacity-50"
                     >
                       {isScanning ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          Đang phân tích OCR...
-                        </div>
+                        <span className="flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+                          Đang phân tích AI...
+                        </span>
                       ) : (
-                        "Quét OCR & Chẩn hóa dữ liệu"
+                        <span className="flex items-center gap-2"><Eye size={16}/> Quét OCR & Xem trước kết quả</span>
                       )}
                     </Button>
                   </div>
+
+                  {/* OCR Result Preview */}
+                  {ocrResult && (
+                    <div className="mt-5 border rounded-lg overflow-hidden">
+                      <div className={`px-4 py-3 flex items-center justify-between font-semibold text-sm ${
+                        ocrQuality === 'ok' ? 'bg-green-50 text-green-800 border-b border-green-200' :
+                        ocrQuality === 'warning' ? 'bg-yellow-50 text-yellow-800 border-b border-yellow-200' :
+                        'bg-red-50 text-red-800 border-b border-red-200'
+                      }`}>
+                        <span className="flex items-center gap-2">
+                          {ocrQuality === 'ok' ? <CheckCircle size={16}/> : ocrQuality === 'warning' ? <AlertCircle size={16}/> : <XCircle size={16}/>}
+                          Kết quả trích xuất từ AI — Kiểm tra trước khi lưu
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                          ocrQuality === 'ok' ? 'bg-green-200 text-green-800' :
+                          ocrQuality === 'warning' ? 'bg-yellow-200 text-yellow-800' : 'bg-red-200 text-red-800'
+                        }`}>
+                          {ocrQuality === 'ok' ? 'Chất lượng tốt' : ocrQuality === 'warning' ? 'Cần xem lại' : 'Ảnh có vấn đề'}
+                        </span>
+                      </div>
+                      <div className="bg-white p-4 grid grid-cols-2 gap-3 text-sm">
+                        {[
+                          { label: 'Số CCCD', key: 'cccd' },
+                          { label: 'Họ và tên', key: 'fullName' },
+                          { label: 'Ngày sinh', key: 'dob' },
+                          { label: 'Giới tính', key: 'gender' },
+                          { label: 'Quốc tịch', key: 'nationality' },
+                          { label: 'Nơi khai sinh', key: 'pob' },
+                          { label: 'Nơi thường trú', key: 'address' },
+                          { label: 'Ngày cấp', key: 'issueDate' },
+                          { label: 'Ngày hết hạn', key: 'expiryDate' },
+                          { label: 'Nơi cấp', key: 'issuePlace' },
+                        ].map(({ label, key }) => (
+                          <div key={key} className="flex flex-col">
+                            <span className="text-xs text-gray-400 uppercase font-medium">{label}</span>
+                            <span className={`font-semibold mt-0.5 ${(ocrResult as any)[key] ? 'text-gray-900' : 'text-orange-400 italic'}`}>
+                              {(ocrResult as any)[key] || 'Không đọc được'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="bg-gray-50 px-4 py-3 flex gap-3 justify-end border-t">
+                        <Button variant="outline" onClick={() => { setOcrResult(null); setFrontImage(null); setBackImage(null); setFrontPreview(null); setBackPreview(null); }} className="border-gray-300 text-gray-600">
+                          <RefreshCw size={14} className="mr-1"/> Chụp lại
+                        </Button>
+                        <Button onClick={handleConfirmSave} disabled={isSaving} className="bg-green-600 hover:bg-green-700 text-white">
+                          {isSaving ? 'Đang lưu...' : <><Save size={14} className="mr-1"/> Xác nhận & Lưu thông tin</>}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-yellow-50 text-red-600 text-sm p-4 rounded mb-6 border border-yellow-200">
