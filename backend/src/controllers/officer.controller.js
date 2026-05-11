@@ -20,7 +20,7 @@ exports.listApplications = async (req, res) => {
       where,
       include: [
         { model: User,    as: 'citizen',  attributes: ['fullName', 'email', 'cccd'] },
-        { model: Service, as: 'service',  attributes: ['name', 'category'] }
+        { model: Service, as: 'service',  attributes: ['name', 'category', 'currentFee'] }
       ],
       order: [['submittedAt', 'ASC']],
       limit: +limit, offset: (+page - 1) * +limit

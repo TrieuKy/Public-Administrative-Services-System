@@ -11,6 +11,7 @@ const Service = sequelize.define('Service', {
   processingDays: { type: DataTypes.INTEGER, defaultValue: 5 },
   level:          { type: DataTypes.STRING, defaultValue: 'Mức độ 4' },
   fee:            { type: DataTypes.STRING, defaultValue: 'Miễn phí' },
+  currentFee:     { type: DataTypes.INTEGER, defaultValue: 0 },
   requiredDocs:   { type: DataTypes.JSONB, defaultValue: [] },
   isActive:       { type: DataTypes.BOOLEAN, defaultValue: true },
 }, { tableName: 'services' });

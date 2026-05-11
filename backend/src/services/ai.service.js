@@ -346,8 +346,19 @@ LƯU Ý ĐẶC BIỆT VỀ CCCD/CMND:
 ` : '';
 
 
+    // Ngày thực tế từ server (tránh AI dùng ngày training cũ)
+    const today = new Date();
+    const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+
     return `Bạn là hệ thống OCR chuyên nghiệp cho tài liệu hành chính Việt Nam.
 Tôi đang gửi ${count} file tài liệu (ảnh hoặc PDF/scan). Hãy phân tích TẤT CẢ ${count} file đó.${svcSection}${pdfNote}
+
+[THÔNG TIN THỜI GIAN THỰC TẾ - BẮT BUỘC SỬ DỤNG]
+Ngày hiện tại (hệ thống server): ${todayStr}
+Năm hiện tại: ${today.getFullYear()}
+TUYỆT ĐỐI sử dụng ngày này làm mốc so sánh. KHÔNG dùng ngày từ dữ liệu huấn luyện của bạn.
+→ Ngày cấp hợp lệ = bất kỳ ngày nào TRƯỚC hoặc BẰNG ${todayStr}
+→ Ngày hết hạn hợp lệ = bất kỳ ngày nào SAU ${todayStr}
 
 ═══ QUY TẮC PHÂN TÍCH ẢNH ═══
 
@@ -420,46 +431,27 @@ Trả về JSON thuần (KHÔNG có markdown, KHÔNG có text thừa), bắt đ�
         "thanhVienHo": "Danh sách thành viên hộ: [{hoTen, quanHe, ngaySinh, cmnd}] hoặc [] nếu không thấy",
         "soGiayTo": "số giấy tờ của loại khác"
       },
-      "validationErrors": [
-        "Mảng các mã lỗi phát hiện, chọn từ danh sách sau:",
-        "BLURRY_IMAGE — Ảnh nhòe/mờ, không đọc được nội dung",
-        "MISSING_SEAL — Thiếu mộc đỏ hoặc chữ kí hợp lệ (với giấy tờ hành chính cần xác nhận)",
-        "FAKE_DOCUMENT — Dấu hiệu ngụy tạo: font sai, nền bất thường, thay đổi ảnh",
-        "MISMATCHED_SIDES — Thông tin không khớp giữa các ảnh cùng nhóm (VD: mặt trước CCCD + mặt sau GPLX)",
-        "MISSING_FIELDS — Thiếu trường thông tin bắt buộc theo loại giấy tờ",
-        "CROPPED_IMAGE — Ảnh bị cắt xén, không đủ góc hoặc thiếu viền",
-        "DUPLICATE_TYPE — Dư giấy tờ: nhiều ảnh cùng loại không phải 2 mặt cùng 1 thẻ",
-        "EXCESS_DOCS — Số lượng giấy tờ vượt quá yêu cầu của dịch vụ"
-      ],
-      "warningLevel": "ok | warning | error (ok=hợp lệ, warning=có vấn đề nhỏ, error=không hợp lệ)",
-      "issues": ["mô tả chi tiết tiếng Việt cho từng vấn đề"],
-      "message": "mô tả kết quả bằng tiếng Việt, VD: 'Đã đọc đủ 2 mặt CCCD', 'Đọc được sổ hộ khẩu, một số chữ viết tay khó nhận dạng'"
+      "validationErrors": [],
+      "warningLevel": "ok | warning | error",
+      "issues": ["mô tả chi tiết tiếng Việt"],
+      "message": "mô tả kết quả bằng tiếng Việt"
     }
   ]
 }
 
-[KIỂM TRA LỖI & NGOẠI LỆ BẮT BUỘC]
-Sau khi đọc xong, kiểm tra và điền validationErrors[] cho mỗi group:
+[các mã lỗi validationErrors hợp lệ]
+BLURRY_IMAGE | MISSING_SEAL | FAKE_DOCUMENT | MISMATCHED_SIDES | MISSING_FIELDS | CROPPED_IMAGE | DUPLICATE_TYPE | EXCESS_DOCS | MISSING_TYPE
 
-1. BLURRY_IMAGE: Ảnh nhòe đến mức không đọc được tỉ lệ >30% nội dung. warningLevel = error.
-2. MISSING_SEAL: Giấy tờ hành chính cần mộc đỏ (sổ hộ khẩu, giấy khai sinh, giấy phép KD) mà không thấy. warningLevel = warning.
-3. FAKE_DOCUMENT: Phông chữ bất thường, pixel/nền có dấu hiệu chỉnh sửa, số CCCD sai format (không phải 12 số). warningLevel = error.
-4. MISMATCHED_SIDES: Nhóm 2+ ảnh có thấy thông tin của 2 người khác nhau, hoặc 2 mặt thuộc 2 loại thẻ khác nhau (VD: mặt trước CCCD + mặt sau GPLX). warningLevel = error.
-5. MISSING_FIELDS: CCCD thiếu số CCCD/tên; GPLX thiếu số bằng; sổ hộ khẩu thiếu số sổ/chủ hộ. warningLevel = warning.
-6. CROPPED_IMAGE: Ảnh bị cắt mất góc, viền giấy tờ không nhìn thấy đủ, hoặc nội dung quan trọng nằm ngoài khung. warningLevel = warning.
-7. DUPLICATE_TYPE: Phát hiện nhiều ảnh cùng loại giấy tờ nhưng KHÔNG phải 2 mặt của cùng 1 thẻ/tài liệu (VD: 2 CCCD của 2 người khác nhau). warningLevel = warning.
-8. EXCESS_DOCS: Người dùng đã nộp quá nhiều giấy tờ không liên quan đến nhau. warningLevel = warning.
+[QUY TẮC QUAN TRỌNG]
+- BLURRY_IMAGE: Ảnh nhòe >30% không đọc được → warningLevel=error
+- MISSING_SEAL: Thiếu mộc đỏ (sổ hộ khẩu, giấy khai sinh) → warning
+- FAKE_DOCUMENT: Font sai, pixel chỉnh sửa, số CCCD không phải 12 số → error
+  * VỀ NGÀY CẤP: Chỉ báo FAKE_DOCUMENT về ngày khi issueDate SAU ngày ${todayStr} (tức là issueDate ở tương lai thực tế). Ngày cấp trước hoặc bằng ${todayStr} là HOÀN TOÀN HỢP LỆ dù là năm ${today.getFullYear()}.
+  * VỀ NGÀY HẾT HẠN: Chỉ báo lỗi khi expiryDate đã QUA ngày ${todayStr} (thẻ hết hạn).
+- MISMATCHED_SIDES: Thông tin không khớp giữa 2 ảnh → error
+- Quy tắc: có error → isValid=false; chỉ warning → isValid=true; không vấn đề → ok
 
-Quy tắc xết warningLevel tổng:
-- Nếu có bất kỳ mã error → warningLevel = error, isValid = false
-- Nếu chỉ có warning → warningLevel = warning, isValid = true
-- Nếu không có vấn đề → warningLevel = ok, validationErrors = []
-
-Lưu ý quan trọng:
-- imageIndexes bắt đầu từ 0
-- Ngày DD/MM/YYYY → chuyển sang YYYY-MM-DD
-- Nếu chỉ có mặt sau: cccd và fullName = null, nhưng noiDangKyKhaiSinh, address, issueDate, issuePlace vẫn đọc bình thường
-- Nếu chỉ có mặt trước: noiDangKyKhaiSinh, address, issueDate, issuePlace = null`;
+Lưu ý: imageIndexes từ 0. Ngày DD/MM/YYYY → YYYY-MM-DD.`;
   }; // end buildPrompt
 
   const prompt = buildPrompt(files.length, serviceContext);
@@ -476,8 +468,8 @@ Lưu ý quan trọng:
     const res = await fetch(`${OCR_SERVICE_URL}/api/vision-multi`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ apiKey, images, prompt, maxOutputTokens: 4000 }),
-      signal:  AbortSignal.timeout(90000),
+      body:    JSON.stringify({ apiKey, images, prompt, maxOutputTokens: 8000 }),
+      signal:  AbortSignal.timeout(120000),
     });
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
@@ -512,7 +504,13 @@ Lưu ý quan trọng:
         });
         parts.push({ text: prompt });
 
-        const result = await model.generateContent({ contents: [{ role: 'user', parts }] });
+        const result = await model.generateContent({
+          contents: [{ role: 'user', parts }],
+          generationConfig: {
+            maxOutputTokens: 8192,
+            temperature: 0.1, // thấp để output ổn định
+          },
+        });
         rawText = result.response.text();
         console.log(`[OCR-GROUP] SDK OK với ${modelName}. Text length: ${rawText.length}`);
         break;
@@ -530,17 +528,46 @@ Lưu ý quan trọng:
     }
   }
 
-  // ── Parse JSON ─────────────────────────────────────────────────────
-  const cleaned   = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('AI không trả về JSON hợp lệ: ' + rawText.substring(0, 300));
+  // ── Parse JSON (có tự sửa JSON bị truncate) ──────────────────────────────
+  /**
+   * Cố gắng sửa JSON bị cắt giữa chừng:
+   * 1. Thử parse thẳng
+   * 2. Tìm group cuối hợp lệ → đóng mảng + object
+   */
+  function tryRepairJson(raw) {
+    // Thử parse thẳng trước
+    try { return JSON.parse(raw); } catch {}
 
-  let parsed;
-  try {
-    parsed = JSON.parse(jsonMatch[0]);
-  } catch {
-    throw new Error('Không thể parse JSON từ AI response');
+    // Tìm vị trí } gần nhất sau trường cuối cùng đọc được
+    const lastValidMarker = Math.max(
+      raw.lastIndexOf('"warningLevel"'),
+      raw.lastIndexOf('"message"'),
+      raw.lastIndexOf('"issues"'),
+      raw.lastIndexOf('"isValid"'),
+    );
+    if (lastValidMarker === -1) return null;
+
+    // Tìm } kế tiếp sau marker đó
+    const braceClose = raw.indexOf('}', lastValidMarker);
+    if (braceClose === -1) return null;
+
+    // Cắt ở đó rồi đóng mảng + object ngoài cùng
+    const repaired = raw.substring(0, braceClose + 1) + ']}';
+    try { return JSON.parse(repaired); } catch {}
+    return null;
   }
+
+  const cleaned = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  // Lấy từ '{' đầu tiên trở đi (không giới hạn kết thúc để bắt cả trường hợp truncated)
+  const braceStart = cleaned.indexOf('{');
+  if (braceStart === -1) throw new Error('AI không trả về JSON hợp lệ: ' + rawText.substring(0, 300));
+
+  const rawJson = cleaned.substring(braceStart);
+  let parsed = tryRepairJson(rawJson);
+  if (!parsed) {
+    throw new Error('Không thể parse JSON từ AI response. Nội dung AI: ' + rawText.substring(0, 400));
+  }
+
 
   const groups = parsed.groups || [];
 

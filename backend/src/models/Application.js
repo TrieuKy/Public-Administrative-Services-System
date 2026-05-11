@@ -20,6 +20,13 @@ const Application = sequelize.define('Application', {
   deadline:       { type: DataTypes.DATE },
   rating:         { type: DataTypes.INTEGER, validate: { min: 1, max: 5 } },
   ratingContent:  { type: DataTypes.TEXT },
+  paymentStatus: {
+    type: DataTypes.ENUM('FREE', 'UNPAID', 'PAID'),
+    defaultValue: 'FREE',
+  },
+  paymentCode:   { type: DataTypes.STRING },
+  copies:        { type: DataTypes.INTEGER, defaultValue: 1 },
+  feeTotal:      { type: DataTypes.INTEGER, defaultValue: 0 },
 }, {
   tableName: 'applications',
   hooks: {

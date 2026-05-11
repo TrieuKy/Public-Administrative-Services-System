@@ -92,19 +92,23 @@ export function ProfilePage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [myApplications, setMyApplications] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingApps, setIsLoadingApps] = useState(false);
 
   // Payment history
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+
+  const fetchApplications = () => {
+    setIsLoadingApps(true);
+    axiosInstance.get('/applications?limit=50')
+      .then(res => setMyApplications(res.data?.data?.applications || []))
+      .catch(console.error)
+      .finally(() => setIsLoadingApps(false));
+  };
 
   useEffect(() => {
     // Lấy thông tin cá nhân
     axiosInstance.get('/auth/me')
       .then(res => setProfile(res.data?.data))
-      .catch(console.error);
-
-    // Lấy hồ sơ (Tracking)
-    axiosInstance.get('/applications')
-      .then(res => setMyApplications(res.data?.data?.applications || []))
       .catch(console.error);
 
     // Đọc lịch sử thanh toán từ localStorage
@@ -114,6 +118,18 @@ export function ProfilePage() {
     } catch {
       setPaymentHistory([]);
     }
+  }, []);
+
+  // Refetch applications khi chuyển sang tab dịch vụ (để luôn có data mới nhất)
+  useEffect(() => {
+    if (activeTab === 'services') {
+      fetchApplications();
+    }
+  }, [activeTab]);
+
+  // Fetch lần đầu khi mount (nếu đang ở tab services)
+  useEffect(() => {
+    fetchApplications();
   }, []);
 
   const handleSearch = async (codeOverride?: string) => {
@@ -433,21 +449,32 @@ export function ProfilePage() {
                   <DataRow label="Ngày hết hạn" value={profile?.expiryDate ? formatDate(profile.expiryDate) : null} />
                   <DataRow label="Nơi cấp" value={profile?.issuePlace} />
                   <DataRow label="Số điện thoại" value={profile?.phone} renderExtra={() => (
-                     isEditingPhone ? (
-                       <div className="flex gap-2 w-full">
-                         <input type="text" value={editPhoneValue} onChange={e => setEditPhoneValue(e.target.value)} placeholder="Nhập SĐT..." className="flex-1 border px-2 py-1 text-sm rounded outline-none focus:border-blue-500" />
-                         <button onClick={handleUpdatePhone} className="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">Lưu</button>
-                         <button onClick={() => setIsEditingPhone(false)} className="bg-gray-200 text-gray-700 px-3 py-1 rounded text-xs hover:bg-gray-300">Hủy</button>
+                     <div className="flex flex-col gap-2 w-full">
+                       {/* Always render input, toggle visibility to avoid losing focus on re-mount */}
+                       <div className={`flex gap-2 w-full ${isEditingPhone ? '' : 'hidden'}`}>
+                         <input
+                           type="tel"
+                           value={editPhoneValue}
+                           onChange={e => setEditPhoneValue(e.target.value)}
+                           onKeyDown={e => { if (e.key === 'Enter') handleUpdatePhone(); if (e.key === 'Escape') setIsEditingPhone(false); }}
+                           placeholder="Nhập số điện thoại..."
+                           maxLength={11}
+                           className="flex-1 border px-3 py-1.5 text-sm rounded outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+                           autoFocus={isEditingPhone}
+                         />
+                         <button onClick={handleUpdatePhone} className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs hover:bg-blue-700 font-medium">Lưu</button>
+                         <button onClick={() => setIsEditingPhone(false)} className="bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-xs hover:bg-gray-300">Hủy</button>
                        </div>
-                     ) : (
-                       <div className="flex items-center justify-between w-full">
-                         {profile?.phone ? <span>{profile.phone}</span> : <span className="text-orange-500 italic font-normal">Chưa có dữ liệu (Nhập thủ công)</span>}
-                         <div className="flex items-center gap-3">
-                           <button onClick={() => { setIsEditingPhone(true); setEditPhoneValue(profile?.phone || ''); }} className="text-blue-600 hover:underline text-xs bg-blue-50 px-2 py-1 rounded">Cập nhật SĐT</button>
-                           {profile?.phone ? <CheckCircle size={16} className="text-green-500"/> : <AlertCircle size={16} className="text-orange-500"/>}
+                       {!isEditingPhone && (
+                         <div className="flex items-center justify-between w-full">
+                           {profile?.phone ? <span>{profile.phone}</span> : <span className="text-orange-500 italic font-normal">Chưa có dữ liệu (Nhập thủ công)</span>}
+                           <div className="flex items-center gap-3">
+                             <button onClick={() => { setIsEditingPhone(true); setEditPhoneValue(profile?.phone || ''); }} className="text-blue-600 hover:underline text-xs bg-blue-50 px-2 py-1 rounded">Cập nhật SĐT</button>
+                             {profile?.phone ? <CheckCircle size={16} className="text-green-500"/> : <AlertCircle size={16} className="text-orange-500"/>}
+                           </div>
                          </div>
-                       </div>
-                     )
+                       )}
+                     </div>
                   )} />
                   <DataRow label="Email (Tùy chọn)" value={profile?.email} />
                 </div>
@@ -542,8 +569,29 @@ export function ProfilePage() {
                     <div className="space-y-4">
                       {myApplications.map((app) => (
                         <div key={app.id} className="border-b last:border-0 pb-4 last:pb-0">
-                          <h3 className="font-bold text-gray-800 mb-1 text-sm md:text-base">{app.service?.name}</h3>
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <h3 className="font-bold text-gray-800 text-sm md:text-base">{app.service?.name}</h3>
+                            {/* Payment status badge */}
+                            {app.paymentStatus === 'UNPAID' && (
+                              <span className="inline-flex items-center gap-1 shrink-0 px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full font-semibold animate-pulse">
+                                <CreditCard size={11} /> Chưa đóng phí
+                              </span>
+                            )}
+                            {app.paymentStatus === 'PAID' && (
+                              <span className="inline-flex items-center gap-1 shrink-0 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-semibold">
+                                <CheckCircle size={11} /> Đã đóng phí
+                              </span>
+                            )}
+                          </div>
                           <div className={`text-xs font-medium mb-3 ${getStatusColor(app.status).split(' ')[0]}`}>{getStatusText(app.status)}</div>
+                          {app.paymentStatus === 'UNPAID' && (
+                            <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700 flex items-center gap-2">
+                              <CreditCard size={12} />
+                              Hồ sơ này chưa được đóng lệ phí. Vui lòng{' '}
+                              <a href="/payment" className="font-bold underline">thanh toán trực tuyến</a>
+                              {app.paymentCode && <span className="ml-1">— Mã: <span className="font-mono font-bold text-orange-700">{app.paymentCode}</span></span>}
+                            </div>
+                          )}
                           
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-gray-600">
                             <div>

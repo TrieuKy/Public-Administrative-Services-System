@@ -100,18 +100,41 @@ async function callGemini(apiKey, body, maxRetries = 3) {
   );
 }
 
-// ── JSON extractor ────────────────────────────────────────────
+// ── JSON extractor (có xử lý JSON bị truncated) ──────────────
 function extractJSON(raw) {
   let text = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
   const start = text.indexOf('{');
-  const end   = text.lastIndexOf('}');
-  if (start === -1 || end === -1) throw new Error('Không tìm thấy JSON trong kết quả.');
-  text = text.slice(start, end + 1).replace(/[\u0000-\u001F\u007F]/g, ' ');
+  if (start === -1) throw new Error('Không tìm thấy JSON trong kết quả.');
+  text = text.slice(start).replace(/[\u0000-\u001F\u007F]/g, ' ');
+
+  // 1. Thử parse thẳng (JSON hoàn chỉnh)
   try { return JSON.parse(text); } catch (_) {}
-  const fixed = text.replace(/: ?"((?:[^"\\]|\\.)*?)"/g, (m, val) =>
-    `: "${val.replace(/(?<!\\)"/g, "'")}"`
+
+  // 2. Thử sửa ký tự nháy kép trong giá trị
+  try {
+    const fixed = text.replace(/: ?"((?:[^"\\]|\\.)*?)"/g, (m, val) =>
+      `: "${val.replace(/(?<!\\)"/g, "'")}"`
+    );
+    return JSON.parse(fixed);
+  } catch (_) {}
+
+  // 3. Sửa JSON bị cắt ngắn (truncated) — tìm group cuối hợp lệ
+  const lastValidMarker = Math.max(
+    text.lastIndexOf('"warningLevel"'),
+    text.lastIndexOf('"message"'),
+    text.lastIndexOf('"issues"'),
+    text.lastIndexOf('"isValid"'),
+    text.lastIndexOf('"isReadable"'),
   );
-  return JSON.parse(fixed);
+  if (lastValidMarker !== -1) {
+    const braceClose = text.indexOf('}', lastValidMarker);
+    if (braceClose !== -1) {
+      const repaired = text.substring(0, braceClose + 1) + ']}';
+      try { return JSON.parse(repaired); } catch (_) {}
+    }
+  }
+
+  throw new Error('Không thể parse JSON từ response AI (có thể bị truncated).');
 }
 
 // ── POST /api/vision — 1 ảnh ─────────────────────────────────
@@ -158,7 +181,7 @@ app.post('/api/vision-multi', async (req, res) => {
 
   const body = {
     contents: [{ parts }],
-    generationConfig: { temperature: 0.1, maxOutputTokens: maxOutputTokens || 4000 },
+    generationConfig: { temperature: 0.1, maxOutputTokens: maxOutputTokens || 8000 },
   };
 
   try {

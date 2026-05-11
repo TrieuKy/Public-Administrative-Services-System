@@ -87,6 +87,7 @@ exports.uploadDocument = async (req, res) => {
 // UC07 — Xác nhận nộp hồ sơ
 exports.submitApplication = async (req, res) => {
   try {
+    const { copies = 1 } = req.body; // số lượng bộ hồ sơ muốn nhận
     const app = await Application.findOne({
       where: { id: req.params.id, userId: req.user.id },
       include: [
@@ -103,7 +104,29 @@ exports.submitApplication = async (req, res) => {
     const deadline = new Date();
     deadline.setDate(deadline.getDate() + processingDays);
 
-    await app.update({ status: 'PENDING', submittedAt: new Date(), deadline });
+    // Tính phí và trạng thái thanh toán
+    const unitFee = app.service?.currentFee || 0;
+    const validCopies = Math.min(Math.max(parseInt(copies) || 1, 1), 5);
+    const feeTotal = unitFee * validCopies;
+    const hasPayment = unitFee > 0;
+
+    // Sinh mã thanh toán nếu cần đóng phí
+    let paymentCode = null;
+    if (hasPayment) {
+      const now = new Date();
+      const rand = Math.floor(10000 + Math.random() * 90000);
+      paymentCode = `PAY${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${rand}`;
+    }
+
+    await app.update({
+      status: 'PENDING',
+      submittedAt: new Date(),
+      deadline,
+      copies: validCopies,
+      feeTotal,
+      paymentStatus: hasPayment ? 'UNPAID' : 'FREE',
+      paymentCode,
+    });
     
     await ApplicationHistory.create({
       applicationId: app.id,
@@ -122,6 +145,13 @@ exports.submitApplication = async (req, res) => {
       applicationId:   app.id,
       applicationCode: app.applicationCode,
       status:          'PENDING',
+      // Payment info
+      hasPayment,
+      paymentCode,
+      unitFee,
+      copies: validCopies,
+      feeTotal,
+      serviceName: app.service?.name,
     });
   } catch (err) { return error(res, err.message, 500); }
 };
@@ -135,7 +165,7 @@ exports.getMyApplications = async (req, res) => {
 
     const { rows, count } = await Application.findAndCountAll({
       where,
-      include: [{ model: Service, as: 'service', attributes: ['name', 'category'] }],
+      include: [{ model: Service, as: 'service', attributes: ['name', 'category', 'currentFee'] }],
       order: [['createdAt', 'DESC']],
       limit: +limit, offset: (+page - 1) * +limit
     });

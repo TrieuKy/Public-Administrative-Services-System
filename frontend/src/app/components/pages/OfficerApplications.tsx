@@ -67,7 +67,10 @@ export function OfficerApplications() {
   // AI Score cache: { [appId]: { overallScore, recommendation, recommendationLevel, loading, summary } }
   const [aiScores, setAiScores] = useState<Record<number, any>>({});
 
+  const [isLoading, setIsLoading] = useState(false);
+
   const fetchApplications = (p = page) => {
+    setIsLoading(true);
     const statusParam = selectedTab !== 'all' ? `&status=${selectedTab}` : '';
     axiosInstance.get(`/officer/applications?page=${p}&limit=${LIMIT}${statusParam}`)
       .then(res => {
@@ -76,7 +79,12 @@ export function OfficerApplications() {
         setTotal(d.total || 0);
         setTotalPages(Math.max(1, Math.ceil((d.total || 0) / LIMIT)));
       })
-      .catch(console.error);
+      .catch(err => {
+        const msg = err.response?.data?.message || err.message || 'Không thể tải danh sách hồ sơ';
+        console.error('[Officer] fetchApplications error:', err.response?.status, msg);
+        toast.error(`Lỗi tải hồ sơ: ${msg}`);
+      })
+      .finally(() => setIsLoading(false));
   };
 
   // Gọi AI phân tích 1 hồ sơ (non-blocking). force=true để phân tích lại.
@@ -102,11 +110,11 @@ export function OfficerApplications() {
   const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString('vi-VN') : '--';
 
   const stats = {
-    pending:    0,
-    processing: 0,
-    completed:  0,
-    needMore:   0,
-    rejected:   0,
+    pending:    applications.filter(a => a.status === 'PENDING').length,
+    processing: applications.filter(a => a.status === 'PROCESSING').length,
+    completed:  applications.filter(a => a.status === 'COMPLETED').length,
+    needMore:   applications.filter(a => a.status === 'NEED_MORE').length,
+    rejected:   applications.filter(a => a.status === 'REJECTED').length,
     total,
   };
 
@@ -223,6 +231,7 @@ export function OfficerApplications() {
                 <th className="p-4 py-3">Ngày nộp</th>
                 <th className="p-4 py-3">Hạn xử lý</th>
                 <th className="p-4 py-3">AI Gợi ý</th>
+                <th className="p-4 py-3 text-center">Lệ phí</th>
                 <th className="p-4 py-3 text-center">Trạng thái</th>
                 <th className="p-4 py-3 text-center">Thao tác</th>
               </tr>
@@ -283,6 +292,15 @@ export function OfficerApplications() {
                     })()}
                   </td>
                   <td className="p-4">{renderStatusTag(app.status)}</td>
+                  {/* Payment status cell */}
+                  <td className="p-4">
+                    {(() => {
+                      const ps = app.paymentStatus;
+                      if (!ps || ps === 'FREE') return <span className="text-xs text-gray-400">Miễn phí</span>;
+                      if (ps === 'PAID') return <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-semibold flex items-center gap-1 w-fit mx-auto"><CheckCircle size={11}/>Đã đóng</span>;
+                      return <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full font-semibold flex items-center gap-1 w-fit mx-auto animate-pulse"><AlertCircle size={11}/>Chưa đóng phí</span>;
+                    })()}
+                  </td>
                   <td className="p-4">
                     <div className="flex justify-center">
                       <button onClick={async () => {
@@ -298,7 +316,14 @@ export function OfficerApplications() {
                 </tr>
               ))}
               {filteredApplications.length === 0 && (
-                <tr><td colSpan={8} className="p-8 text-center text-gray-400">Không có dữ liệu</td></tr>
+                <tr>
+                  <td colSpan={9} className="p-8 text-center text-gray-400">
+                    {isLoading
+                      ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-gray-300 border-t-red-600 rounded-full animate-spin"/> Đang tải dữ liệu...</span>
+                      : 'Không có dữ liệu'
+                    }
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -352,7 +377,29 @@ export function OfficerApplications() {
                   <p className="text-gray-500">Ngày nộp: <span className="text-gray-900 font-medium ml-2">{formatDate(selectedApplication.submittedAt)}</span></p>
                   <p className="text-gray-500">Hạn xử lý: <span className="text-gray-900 font-medium ml-2">{formatDate(selectedApplication.deadline)}</span></p>
                   <p className="text-gray-500">Lệ phí: <span className="text-gray-900 font-medium ml-2">{selectedApplication.service?.currentFee > 0 ? selectedApplication.service?.currentFee + ' đ' : 'Miễn phí'}</span></p>
+                  {/* Payment status */}
+                  {selectedApplication.paymentStatus && selectedApplication.paymentStatus !== 'FREE' && (
+                    <p className="text-gray-500 col-span-2 flex items-center gap-2">
+                      Thanh toán:
+                      {selectedApplication.paymentStatus === 'PAID'
+                        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold"><CheckCircle size={12}/>Đã đóng phí</span>
+                        : <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold animate-pulse"><AlertCircle size={12}/>Chưa đóng phí</span>
+                      }
+                      {selectedApplication.paymentCode && (
+                        <span className="text-xs text-gray-500">
+                          — Mã: <span className="font-mono font-bold text-orange-700">{selectedApplication.paymentCode}</span>
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  {selectedApplication.feeTotal > 0 && (
+                    <p className="text-gray-500 col-span-2">
+                      Tổng phí: <span className="font-bold text-red-700 ml-2">{new Intl.NumberFormat('vi-VN').format(selectedApplication.feeTotal)} đ</span>
+                      <span className="text-gray-400 text-xs ml-1">({selectedApplication.copies} bộ × {new Intl.NumberFormat('vi-VN').format(selectedApplication.service?.currentFee || 0)} đ)</span>
+                    </p>
+                  )}
                 </div>
+
               </div>
 
               {/* Documents */}

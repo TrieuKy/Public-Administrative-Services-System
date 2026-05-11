@@ -38,6 +38,7 @@ interface ServiceObj {
   processingTime: string;
   level: string;
   fee: string;
+  currentFee?: number; // số thực tế từ database
   requiredDocs: string[];
 }
 
@@ -65,6 +66,8 @@ export function ServiceFormPage() {
   const [activeCategory, setActiveCategory] = useState<string>('individual');
   const [fileEntries, setFileEntries] = useState<UploadedFileEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [copies, setCopies] = useState(1); // số lượng bộ hồ sơ
+  const [paymentResult, setPaymentResult] = useState<any>(null); // hiện modal sau nộp
 
   // AI states
   const [apiKey, setApiKey]           = useState('');
@@ -196,7 +199,49 @@ export function ServiceFormPage() {
       });
 
       const { groups, mergedFields } = res.data.data;
-      setDocGroups(groups || []);
+
+      // ── Post-process: lọc false-positive về ngày từ AI ──────────────────
+      // AI đôi khi dùng ngày training cũ để so sánh, gây cảnh báo sai về "ngày tương lai"
+      const now = new Date();
+      const sanitizedGroups = (groups || []).map((g: DocGroup) => {
+        const issueDate = g.extractedFields?.issueDate;
+
+        // Kiểm tra ngày cấp: nếu AI báo "tương lai" nhưng ngày đó đã qua → bỏ warning
+        const issueDateParsed = issueDate ? new Date(issueDate) : null;
+        const isFutureIssueDateFalsePositive =
+          issueDateParsed && issueDateParsed <= now &&
+          g.issues?.some((iss: string) => /tương lai|future|sau ngày/i.test(iss));
+
+        if (isFutureIssueDateFalsePositive) {
+          return {
+            ...g,
+            // Xóa issues về ngày sai
+            issues: (g.issues || []).filter(
+              (iss: string) => !/tương lai|future|sau ngày.*cấp|cấp.*sau ngày/i.test(iss)
+            ),
+            // Nếu FAKE_DOCUMENT chỉ vì ngày cấp → hạ xuống warning hoặc bỏ
+            validationErrors: (g.validationErrors || []).filter(
+              (code: string) => code !== 'FAKE_DOCUMENT'
+            ),
+            // Recalculate warningLevel
+            warningLevel: (() => {
+              const remaining = (g.validationErrors || []).filter((c: string) => c !== 'FAKE_DOCUMENT');
+              const errorCodes = ['BLURRY_IMAGE', 'MISMATCHED_SIDES', 'FAKE_DOCUMENT'];
+              if (remaining.some((c: string) => errorCodes.includes(c))) return 'error';
+              if (remaining.length > 0) return 'warning';
+              return 'ok';
+            })(),
+            isValid: (() => {
+              const remaining = (g.validationErrors || []).filter((c: string) => c !== 'FAKE_DOCUMENT');
+              const errorCodes = ['BLURRY_IMAGE', 'MISMATCHED_SIDES', 'FAKE_DOCUMENT'];
+              return !remaining.some((c: string) => errorCodes.includes(c));
+            })(),
+          };
+        }
+        return g;
+      });
+
+      setDocGroups(sanitizedGroups);
 
       // Mặc định expand tất cả groups
       const expanded: Record<number, boolean> = {};
@@ -263,7 +308,6 @@ export function ServiceFormPage() {
 
       const appRes = await axiosInstance.post('/applications', {
         serviceId: selectedService,
-        // Gộp formFields + tất cả groupFields để submit
         formData: {
           ...Object.values(groupFields).reduce((acc, gf) => ({ ...acc, ...gf }), {}),
           ...formFields,
@@ -280,16 +324,29 @@ export function ServiceFormPage() {
         });
       }
 
-      if (!isDraft) await axiosInstance.post(`/applications/${appId}/submit`);
-
-      toast.success(isDraft ? 'Lưu nháp thành công!' : 'Nộp hồ sơ thành công!');
-      navigate('/profile');
+      if (!isDraft) {
+        const submitRes = await axiosInstance.post(`/applications/${appId}/submit`, {
+          copies: copies,
+        });
+        const submitData = submitRes.data.data;
+        toast.success('Nộp hồ sơ thành công!');
+        if (submitData.hasPayment) {
+          // Hiện modal thanh toán
+          setPaymentResult(submitData);
+        } else {
+          navigate('/profile');
+        }
+      } else {
+        toast.success('Lưu nháp thành công!');
+        navigate('/profile');
+      }
     } catch (err: any) {
       toast.error('Có lỗi xảy ra: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   // ── Computed ──────────────────────────────────────────────────────────
   const service      = services.find(s => s.id === selectedService);
@@ -323,6 +380,7 @@ export function ServiceFormPage() {
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
+    <>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
@@ -837,8 +895,41 @@ export function ServiceFormPage() {
           </div>
         )}
 
+        {/* ── 5. Chọn số lượng bộ hồ sơ ── */}
+        {service && (service.currentFee || 0) > 0 && canSubmit && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <p className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+              📋 Số lượng bộ hồ sơ muốn nhận
+              <span className="text-xs font-normal text-blue-600">(tối đa 5 bộ)</span>
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center border border-blue-300 rounded-lg overflow-hidden bg-white">
+                <button
+                  onClick={() => setCopies(c => Math.max(1, c - 1))}
+                  className="px-3 py-2 text-blue-700 hover:bg-blue-50 font-bold text-lg transition"
+                >−</button>
+                <span className="px-4 py-2 font-bold text-blue-900 text-lg min-w-[3rem] text-center">{copies}</span>
+                <button
+                  onClick={() => setCopies(c => Math.min(5, c + 1))}
+                  className="px-3 py-2 text-blue-700 hover:bg-blue-50 font-bold text-lg transition"
+                >+</button>
+              </div>
+              <div className="text-sm text-gray-600">
+                <span className="text-gray-500">Lệ phí: </span>
+                <span className="font-semibold text-gray-800">
+                  {new Intl.NumberFormat('vi-VN').format(service.currentFee || 0)} đ × {copies} bộ
+                </span>
+                <span className="mx-2 text-gray-400">=</span>
+                <span className="font-extrabold text-red-700 text-base">
+                  {new Intl.NumberFormat('vi-VN').format((service.currentFee || 0) * copies)} đ
+                </span>
+              </div>
+            </div>
+            <p className="text-xs text-blue-600 mt-2">Sau khi nộp, hệ thống sẽ cấp mã thanh toán để bạn đến trang thanh toán trực tuyến.</p>
+          </div>
+        )}
 
-        {/* ── 5. Submit ── */}
+        {/* ── 6. Submit ── */}
 
         {/* Advisory banner: warning = AI gợi ý, không block */}
         {hasAnalyzed && anyWarning && !anyHardError && (
@@ -893,5 +984,79 @@ export function ServiceFormPage() {
         </div>
       </div>
     </div>
+
+    {/* ── Payment Result Modal ── */}
+    {paymentResult && (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-white text-center">
+            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+              <CheckCircle size={36} className="text-white" />
+            </div>
+            <h2 className="text-xl font-bold">Nộp hồ sơ thành công!</h2>
+            <p className="text-sm text-green-100 mt-1">{paymentResult.serviceName}</p>
+          </div>
+
+          {/* Payment Info */}
+          <div className="p-6">
+            <div className="bg-orange-50 border-2 border-orange-300 rounded-xl p-4 mb-4">
+              <p className="text-xs text-orange-600 uppercase font-bold mb-1">Mã thanh toán</p>
+              <div className="flex items-center gap-3">
+                <p className="text-2xl font-mono font-extrabold text-orange-700 tracking-wider">{paymentResult.paymentCode}</p>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(paymentResult.paymentCode); }}
+                  className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded hover:bg-orange-200 transition"
+                  title="Sao chép mã"
+                >
+                  Sao chép
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-sm mb-5">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Lệ phí 1 bộ</span>
+                <span className="font-semibold">{new Intl.NumberFormat('vi-VN').format(paymentResult.unitFee)} đ</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Số lượng bộ</span>
+                <span className="font-semibold">{paymentResult.copies} bộ</span>
+              </div>
+              <div className="flex justify-between border-t pt-3">
+                <span className="text-gray-800 font-bold">Tổng lệ phí</span>
+                <span className="font-extrabold text-red-700 text-lg">{new Intl.NumberFormat('vi-VN').format(paymentResult.feeTotal)} đ</span>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5 text-xs text-blue-700">
+              <p className="font-semibold mb-1">📌 Hướng dẫn thanh toán:</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Vào trang <strong>Thanh toán trực tuyến</strong> trên menu</li>
+                <li>Nhập <strong>Mã thanh toán</strong> ở trên vào ô tra cứu</li>
+                <li>Chọn phương thức và hoàn tất thanh toán</li>
+              </ol>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => { setPaymentResult(null); navigate('/profile'); }}
+                className="flex-1 border-gray-300"
+              >
+                Xem hồ sơ của tôi
+              </Button>
+              <Button
+                onClick={() => { setPaymentResult(null); navigate('/payment'); }}
+                className="flex-1 bg-red-700 hover:bg-red-800 text-white"
+              >
+                Thanh toán ngay →
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 }

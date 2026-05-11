@@ -1,8 +1,9 @@
-import { Home, User as UserIcon, Settings, LogOut, ChevronDown, Phone, Mail, X } from 'lucide-react';
+import { Home, User as UserIcon, Settings, LogOut, ChevronDown, Phone, Mail, X, Bell, CheckCircle, AlertCircle, Clock, CreditCard, Info, Megaphone } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from './ui/button';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import axiosInstance from '../../utils/axiosInstance';
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -63,6 +64,9 @@ export function Header() {
 
           {/* Actions */}
           <div className="flex items-center gap-3">
+            {/* Notification Bell — only for logged in users */}
+            {user && <NotificationBell />}
+
             {user ? (
               <div className="relative">
                 <button
@@ -204,5 +208,266 @@ export function Header() {
         </nav>
       </div>
     </header>
+  );
+}
+
+// ── Notification Bell Component ──────────────────────────────────────────────
+function NotificationBell() {
+  const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'procedure' | 'system'>('procedure');
+  const [applications, setApplications] = useState<any[]>([]);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // System news (static demo — có thể fetch từ API posts sau này)
+  const systemNews = [
+    {
+      id: 1,
+      title: 'Hệ thống bảo trì định kỳ',
+      body: 'Hệ thống sẽ bảo trì từ 22:00 – 23:00 ngày 15/05/2026. Vui lòng hoàn thành giao dịch trước thời gian trên.',
+      time: '2 giờ trước',
+      icon: 'info',
+    },
+    {
+      id: 2,
+      title: 'Cập nhật biểu mẫu khai sinh mới',
+      body: 'Biểu mẫu đăng ký khai sinh đã được cập nhật theo Thông tư 01/2024. Vui lòng sử dụng mẫu mới khi nộp hồ sơ.',
+      time: '1 ngày trước',
+      icon: 'info',
+    },
+    {
+      id: 3,
+      title: 'Thông báo nghỉ lễ 30/4 – 1/5',
+      body: 'UBND Xã/Phường nghỉ lễ từ ngày 30/4 đến 1/5/2026. Hồ sơ sẽ được tiếp nhận trở lại từ ngày 2/5/2026.',
+      time: '5 ngày trước',
+      icon: 'megaphone',
+    },
+  ];
+
+  // Fetch applications when bell opens
+  useEffect(() => {
+    if (open) {
+      axiosInstance.get('/applications?limit=20')
+        .then(res => setApplications(res.data?.data?.applications || []))
+        .catch(() => {});
+    }
+  }, [open]);
+
+  // Close when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Generate procedure notifications from applications
+  const procedureNotifs = applications.flatMap(app => {
+    const notifs: { id: string; title: string; body: string; type: string; appCode: string }[] = [];
+    if (app.status === 'PENDING') {
+      notifs.push({
+        id: `pd-${app.id}`,
+        title: 'Hồ sơ đã được tiếp nhận',
+        body: `Hồ sơ ${app.applicationCode} (${app.service?.name}) đã nộp thành công và đang chờ cán bộ xem xét.`,
+        type: 'info',
+        appCode: app.applicationCode,
+      });
+    }
+    if (app.status === 'NEED_MORE') {
+      notifs.push({
+        id: `nm-${app.id}`,
+        title: 'Yêu cầu bổ sung hồ sơ',
+        body: `Hồ sơ ${app.applicationCode} (${app.service?.name}) cần bổ sung tài liệu theo yêu cầu cán bộ.`,
+        type: 'warning',
+        appCode: app.applicationCode,
+      });
+    }
+    if (app.status === 'PROCESSING') {
+      notifs.push({
+        id: `pr-${app.id}`,
+        title: 'Hồ sơ đang được xử lý',
+        body: `Hồ sơ ${app.applicationCode} (${app.service?.name}) đang trong quá trình xem xét bởi cán bộ.`,
+        type: 'info',
+        appCode: app.applicationCode,
+      });
+    }
+    if (app.status === 'COMPLETED') {
+      notifs.push({
+        id: `cp-${app.id}`,
+        title: 'Hồ sơ đã hoàn thành',
+        body: `Hồ sơ ${app.applicationCode} (${app.service?.name}) đã được duyệt và hoàn thành. Bạn có thể đến nhận kết quả.`,
+        type: 'success',
+        appCode: app.applicationCode,
+      });
+    }
+    if (app.status === 'REJECTED') {
+      notifs.push({
+        id: `rj-${app.id}`,
+        title: 'Hồ sơ bị từ chối',
+        body: `Hồ sơ ${app.applicationCode} (${app.service?.name}) đã bị từ chối. Vui lòng xem lý do chi tiết.`,
+        type: 'error',
+        appCode: app.applicationCode,
+      });
+    }
+    // Payment notification: paymentStatus field (added to Application model)
+    if (app.paymentStatus === 'UNPAID' && (app.service?.currentFee || app.service?.fee) > 0) {
+      notifs.push({
+        id: `up-${app.id}`,
+        title: 'Chưa đóng lệ phí',
+        body: `Hồ sơ ${app.applicationCode} chưa được thanh toán lệ phí. Vui lòng vào trang Thanh toán trực tuyến.`,
+        type: 'payment',
+        appCode: app.applicationCode,
+      });
+    }
+    return notifs;
+  });
+
+  const totalUnread = procedureNotifs.length + systemNews.length;
+
+  const typeIcon = (type: string) => {
+    switch (type) {
+      case 'success': return <CheckCircle size={16} className="text-green-500 shrink-0 mt-0.5" />;
+      case 'warning': return <AlertCircle size={16} className="text-orange-500 shrink-0 mt-0.5" />;
+      case 'error':   return <X size={16} className="text-red-500 shrink-0 mt-0.5" />;
+      case 'payment': return <CreditCard size={16} className="text-purple-500 shrink-0 mt-0.5" />;
+      default:        return <Clock size={16} className="text-blue-500 shrink-0 mt-0.5" />;
+    }
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        id="notification-bell-btn"
+        onClick={() => setOpen(prev => !prev)}
+        className="relative w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 hover:bg-orange-50 hover:border-orange-300 transition"
+        title="Thông báo"
+      >
+        <Bell size={20} className={open ? 'text-orange-600' : 'text-gray-600'} />
+        {totalUnread > 0 && (
+          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+            {totalUnread > 9 ? '9+' : totalUnread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-96 bg-white border border-gray-200 rounded-2xl shadow-2xl z-[100] overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-red-700 to-orange-600">
+            <div className="flex items-center gap-2 text-white font-bold text-sm">
+              <Bell size={16} />
+              Thông báo của tôi
+            </div>
+            <button onClick={() => setOpen(false)} className="text-white/70 hover:text-white transition">
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b">
+            <button
+              onClick={() => setActiveTab('procedure')}
+              className={`flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-1.5 transition border-b-2 ${
+                activeTab === 'procedure'
+                  ? 'border-red-600 text-red-700 bg-red-50'
+                  : 'border-transparent text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <Clock size={13} />
+              Thủ tục của tôi
+              {procedureNotifs.length > 0 && (
+                <span className="bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
+                  {procedureNotifs.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('system')}
+              className={`flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-1.5 transition border-b-2 ${
+                activeTab === 'system'
+                  ? 'border-blue-600 text-blue-700 bg-blue-50'
+                  : 'border-transparent text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <Megaphone size={13} />
+              Tin tức hệ thống
+              <span className="bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
+                {systemNews.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="max-h-[380px] overflow-y-auto">
+            {activeTab === 'procedure' && (
+              procedureNotifs.length === 0 ? (
+                <div className="py-10 text-center text-gray-400">
+                  <CheckCircle size={36} className="mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm font-medium">Không có thông báo nào</p>
+                  <p className="text-xs text-gray-400 mt-1">Mọi hồ sơ của bạn đang ổn</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {procedureNotifs.map(n => (
+                    <div key={n.id} className={`px-4 py-3 hover:bg-gray-50 transition ${
+                      n.type === 'payment' ? 'bg-purple-50/40' : ''
+                    }`}>
+                      <div className="flex gap-3">
+                        {typeIcon(n.type)}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-800">{n.title}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{n.body}</p>
+                          <p className="text-xs text-red-600 font-mono mt-1 font-semibold">{n.appCode}</p>
+                          {n.type === 'payment' && (
+                            <Link
+                              to="/payment"
+                              onClick={() => setOpen(false)}
+                              className="inline-block mt-1 text-xs bg-purple-600 text-white px-2 py-0.5 rounded font-medium hover:bg-purple-700 transition"
+                            >
+                              Thanh toán ngay →
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+
+            {activeTab === 'system' && (
+              <div className="divide-y divide-gray-100">
+                {systemNews.map(n => (
+                  <div key={n.id} className="px-4 py-3 hover:bg-gray-50 transition">
+                    <div className="flex gap-3">
+                      {n.icon === 'megaphone'
+                        ? <Megaphone size={16} className="text-orange-500 shrink-0 mt-0.5" />
+                        : <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-800">{n.title}</p>
+                        <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{n.body}</p>
+                        <p className="text-xs text-gray-400 mt-1">{n.time}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="px-4 py-2.5 border-t bg-gray-50 flex justify-between items-center">
+            <span className="text-xs text-gray-400">Tự động cập nhật khi mở</span>
+            <Link
+              to="/profile"
+              onClick={() => setOpen(false)}
+              className="text-xs text-red-600 hover:underline font-medium"
+            >
+              Xem tất cả hồ sơ →
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
