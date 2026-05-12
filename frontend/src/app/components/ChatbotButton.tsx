@@ -50,8 +50,37 @@ export function ChatbotButton() {
     }
   };
 
-  const handleQuickQuestion = (question: string) => {
+  const handleQuickQuestion = async (question: string) => {
     setInput(question);
+    
+    // Auto-send the quick question after setting it
+    const userMsg = { text: question, sender: 'user' as const };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const history = messages.slice(1).map(m => ({
+        role: m.sender === 'user' ? 'user' : 'model',
+        parts: [{ text: m.text }]
+      }));
+
+      const res = await axiosInstance.post('/ai/chat', {
+        message: question,
+        history
+      });
+
+      const botReply = res.data.data.reply;
+      setMessages([...newMessages, { text: botReply, sender: 'bot' }]);
+    } catch {
+      setMessages([...newMessages, {
+        text: 'Xin lỗi, tôi đang gặp sự cố. Vui lòng thử lại hoặc liên hệ trực tiếp UBND xã.',
+        sender: 'bot'
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -158,13 +187,13 @@ export function ChatbotButton() {
           <MessageCircle size={28} className="group-hover:animate-bounce" />
         )}
 
-        {/* Notification badge */}
-        {!isOpen && (
-          <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center text-xs font-bold text-gray-900 animate-pulse">
-            !
+        {/* Notification badge - only show when closed and has messages beyond initial greeting */}
+        {!isOpen && messages.length > 1 && (
+          <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold text-white">
+            {Math.min(messages.length - 1, 9)}
           </div>
         )}
       </button>
     </>
   );
-}
+}

@@ -114,7 +114,7 @@ export function ApplicationDetailModal({ isOpen, onClose, application }: Applica
                     </div>
                   </div>
                   {doc.fileUrl && (
-                    <a href={(import.meta as any).env.VITE_API_URL?.replace('/api/v1', '') + doc.fileUrl} target="_blank" rel="noreferrer" className="p-2 hover:bg-gray-100 rounded transition">
+                    <a href={((import.meta as any).env.VITE_API_URL || 'http://localhost:3001/api/v1')?.replace('/api/v1', '') + doc.fileUrl} target="_blank" rel="noreferrer" className="p-2 hover:bg-gray-100 rounded transition">
                       <Download className="text-blue-600" size={20} />
                     </a>
                   )}

@@ -4,8 +4,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 // import quochuy from 'figma:asset/0c39003aa259bb6a3d5c50ee4e5afc4504bb9aa4.png';
-const quochuy = ''; // Placeholder for now
+// Using emoji as placeholder since image asset is unavailable
+const quochuy = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="60" font-size="80" text-anchor="middle">🦅</text></svg>';
 import axiosInstance from '../../../utils/axiosInstance';
+import { toast } from 'react-toastify';
 
 export function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -40,7 +42,7 @@ export function RegisterPage() {
       const response = await axiosInstance.post('/auth/register', formData);
       const data = response.data;
       if (data.success) {
-        alert('Đăng ký thành công, vui lòng kiểm tra email để xác nhận');
+        toast.success('Đăng ký thành công, vui lòng kiểm tra email để xác nhận');
         navigate('/login');
       } else {
         setErrorText(data.message || 'Đăng ký thất bại.');

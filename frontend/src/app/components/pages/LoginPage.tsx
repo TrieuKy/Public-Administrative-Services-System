@@ -6,7 +6,8 @@ import { Card } from '../ui/card';
 import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'react-toastify';
 // import quochuy from 'figma:asset/0c39003aa259bb6a3d5c50ee4e5afc4504bb9aa4.png';
-const quochuy = ''; // Placeholder for now
+// Using emoji as placeholder since image asset is unavailable
+const quochuy = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="60" font-size="80" text-anchor="middle">🦅</text></svg>';
 import axiosInstance from '../../../utils/axiosInstance';
 
 export function LoginPage() {
@@ -89,13 +90,13 @@ export function LoginPage() {
             Tài khoản
           </button>
           <button
-            onClick={() => setLoginMethod('phone')}
-            className={`flex-1 py-2 rounded-lg transition ${
-              loginMethod === 'phone'
-                ? 'bg-red-700 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
+            disabled
+            className="flex-1 py-2 rounded-lg transition bg-gray-100 text-gray-400 cursor-not-allowed relative group"
+            title="Tính năng sắp ra mắt"
           >
+            <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
+              Sắp ra mắt
+            </div>
             Số điện thoại
           </button>
         </div>
@@ -185,7 +186,7 @@ export function LoginPage() {
               <input type="checkbox" className="w-4 h-4 text-red-700 border-gray-300 rounded focus:ring-red-500" />
               <span className="text-gray-600">Ghi nhớ đăng nhập</span>
             </label>
-            <a href="#" className="text-red-700 hover:text-red-800">
+            <a href="/forgot-password" className="text-red-700 hover:text-red-800">
               Quên mật khẩu?
             </a>
           </div>
@@ -216,12 +217,7 @@ export function LoginPage() {
           </p>
         </div>
 
-        {/* Officer Login */}
-        <div className="mt-4 text-center">
-          <Link to="/officer/overview" className="text-sm text-gray-600 hover:text-red-700 transition">
-            Đăng nhập dành cho cán bộ →
-          </Link>
-        </div>
+        {/* Officer Login removed for security - direct link bypasses authentication */}
 
         {/* Support */}
         <div className="mt-6 p-4 bg-orange-50 rounded-lg border border-orange-200">

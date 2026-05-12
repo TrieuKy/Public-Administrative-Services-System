@@ -1,6 +1,23 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 export function Hero() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
+
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      // Navigate to tracking page with search query
+      navigate(`/tracking?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
   return (
     <div
       className="relative bg-gradient-to-r from-orange-200/40 via-orange-100/30 to-orange-200/40 overflow-hidden"
@@ -23,10 +40,15 @@ export function Hero() {
           <div className="flex flex-col md:flex-row gap-3">
             <input
               type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={handleKeyPress}
               placeholder="Nhập từ khóa tìm kiếm"
               className="flex-1 px-4 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
             />
-            <button className="px-8 py-3 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-gray-900 rounded shadow-sm transition whitespace-nowrap">
+            <button 
+              onClick={handleSearch}
+              className="px-8 py-3 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-gray-900 rounded shadow-sm transition whitespace-nowrap">
               Tìm kiếm nâng cao
             </button>
           </div>

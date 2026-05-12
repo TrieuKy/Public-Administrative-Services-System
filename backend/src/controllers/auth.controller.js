@@ -113,10 +113,18 @@ exports.updateMe = async (req, res) => {
     const user = await User.findByPk(req.user.id);
     if (!user) return error(res, 'Người dùng không tồn tại', 404);
     
+    // If updating password, verify current password first
+    if (req.body.password) {
+      const { currentPassword } = req.body;
+      if (!currentPassword) return error(res, 'Vui lòng cung cấp mật khẩu hiện tại để đổi mật khẩu', 400);
+      const isValid = await user.comparePassword(currentPassword);
+      if (!isValid) return error(res, 'Mật khẩu hiện tại không đúng', 401);
+    }
+    
     const { 
       fullName, dob, phone, gender, pob, hometown, address, cccd,
       taxCode, insuranceCode, passport, driverLicense,
-      nationality, issueDate, expiryDate, issuePlace 
+      nationality, issueDate, expiryDate, issuePlace, password 
     } = req.body;
 
     await user.update({
@@ -136,6 +144,7 @@ exports.updateMe = async (req, res) => {
       issueDate:      issueDate       !== undefined ? issueDate       : user.issueDate,
       expiryDate:     expiryDate      !== undefined ? expiryDate      : user.expiryDate,
       issuePlace:     issuePlace      !== undefined ? issuePlace      : user.issuePlace,
+      password:       password        !== undefined ? password        : user.password,
     });
 
     // Reload để trả về dữ liệu mới nhất

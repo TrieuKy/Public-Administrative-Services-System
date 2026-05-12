@@ -44,11 +44,11 @@ exports.getApplicationDetail = async (req, res) => {
     if (!app) return error(res, 'Hồ sơ không tồn tại', 404);
 
     // Lấy thêm lịch sử luân chuyển
-    const histories = []; /* await ApplicationHistory.findAll({
+    const histories = await ApplicationHistory.findAll({
       where: { applicationId: app.id },
       include: [{ model: User, as: 'actor', attributes: ['fullName', 'position', 'role'] }],
       order: [['createdAt', 'DESC']]
-    }); */
+    });
 
     const result = app.toJSON();
     result.histories = histories;

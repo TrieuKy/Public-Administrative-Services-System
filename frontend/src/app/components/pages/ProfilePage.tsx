@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { ApplicationDetailModal } from './ApplicationDetailModal';
 import axiosInstance from '../../../utils/axiosInstance';
+import { toast } from 'react-toastify';
 
 export function ProfilePage() {
   const [activeTab, setActiveTab] = useState('identity');
@@ -41,11 +42,11 @@ export function ProfilePage() {
 
   const handleOcrScan = async () => {
     if (!frontImage || !backImage) {
-      alert('Vui lòng tải lên đầy đủ cả mặt trước và mặt sau CCCD!');
+      toast.error('Vui lòng tải lên đầy đủ cả mặt trước và mặt sau CCCD!');
       return;
     }
     if (!frontImage.type.startsWith('image/') || !backImage.type.startsWith('image/')) {
-      alert('Định dạng file không hợp lệ! Vui lòng chỉ tải lên file hình ảnh (JPG, PNG...).');
+      toast.error('Định dạng file không hợp lệ! Vui lòng chỉ tải lên file hình ảnh (JPG, PNG...).');
       return;
     }
 
@@ -63,7 +64,7 @@ export function ProfilePage() {
       setOcrQuality(data.quality);
     } catch (err: any) {
       console.error(err);
-      alert('Không thể đọc thông tin từ ảnh: ' + (err.response?.data?.message || err.message));
+      toast.error('Không thể đọc thông tin từ ảnh: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsScanning(false);
     }
@@ -78,9 +79,9 @@ export function ProfilePage() {
       setOcrResult(null);
       setFrontImage(null); setBackImage(null);
       setFrontPreview(null); setBackPreview(null);
-      alert('Đã cập nhật thông tin định danh thành công!');
+      toast.success('Đã cập nhật thông tin định danh thành công!');
     } catch (err: any) {
-      alert('Lỗi cập nhật: ' + (err.response?.data?.message || err.message));
+      toast.error('Lỗi cập nhật: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsSaving(false);
     }
@@ -217,7 +218,7 @@ export function ProfilePage() {
         setIsEditingPhone(false);
       })
       .catch(err => {
-        alert("Lỗi cập nhật số điện thoại.");
+        toast.error("Lỗi cập nhật số điện thoại.");
         console.error(err);
       });
   };
@@ -735,7 +736,7 @@ export function ProfilePage() {
                <Button onClick={() => setRatingApp(null)} variant="outline" className="flex-1 border-gray-300">Đóng</Button>
                <Button 
                  onClick={() => { 
-                   alert("Cảm ơn bạn đã gửi đánh giá! Khảo sát của bạn giúp hệ thống Dịch Vụ Công phục vụ tốt hơn."); 
+                   toast.success("Cảm ơn bạn đã gửi đánh giá! Khảo sát của bạn giúp hệ thống Dịch Vụ Công phục vụ tốt hơn."); 
                    setRatingApp(null); 
                  }} 
                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"

@@ -382,7 +382,7 @@ export function OfficerDashboard() {
                         <span className="text-gray-900">{doc.fileName}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                         <a href={(import.meta as any).env.VITE_API_URL?.replace('/api/v1', '') + doc.fileUrl} target="_blank" rel="noreferrer">
+                         <a href={((import.meta as any).env.VITE_API_URL || 'http://localhost:3001/api/v1')?.replace('/api/v1', '') + doc.fileUrl} target="_blank" rel="noreferrer">
                            <Button size="sm" variant="outline">Xem</Button>
                          </a>
                       </div>

@@ -418,8 +418,8 @@ export function OfficerApplications() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <a href={(import.meta as any).env.VITE_API_URL?.replace('/api/v1', '') + doc.fileUrl} target="_blank" rel="noreferrer" className="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition"><Eye size={18} /></a>
-                        <a href={(import.meta as any).env.VITE_API_URL?.replace('/api/v1', '') + doc.fileUrl} download={doc.fileName} className="p-1.5 bg-green-50 text-green-600 rounded hover:bg-green-100 transition"><Download size={18} /></a>
+                        <a href={((import.meta as any).env.VITE_API_URL || 'http://localhost:3001/api/v1')?.replace('/api/v1', '') + doc.fileUrl} target="_blank" rel="noreferrer" className="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition"><Eye size={18} /></a>
+                        <a href={((import.meta as any).env.VITE_API_URL || 'http://localhost:3001/api/v1')?.replace('/api/v1', '') + doc.fileUrl} download={doc.fileName} className="p-1.5 bg-green-50 text-green-600 rounded hover:bg-green-100 transition"><Download size={18} /></a>
                       </div>
                     </div>
                   ))}

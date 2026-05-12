@@ -1,6 +1,7 @@
 import { Card } from './ui/card';
 import { ArrowRight, CheckCircle, Clock, Building2, Banknote } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../utils/axiosInstance';
 
 interface Service {
