@@ -735,9 +735,16 @@ export function ProfilePage() {
              <div className="flex gap-3">
                <Button onClick={() => setRatingApp(null)} variant="outline" className="flex-1 border-gray-300">Đóng</Button>
                <Button 
-                 onClick={() => { 
-                   toast.success("Cảm ơn bạn đã gửi đánh giá! Khảo sát của bạn giúp hệ thống Dịch Vụ Công phục vụ tốt hơn."); 
-                   setRatingApp(null); 
+                 onClick={async () => {
+                   try {
+                     await axiosInstance.post(`/applications/${ratingApp.id}/rate`, { rating: ratingValue });
+                     toast.success("Cảm ơn bạn đã gửi đánh giá! Khảo sát của bạn giúp hệ thống Dịch Vụ Công phục vụ tốt hơn.");
+                     // Cập nhật local state
+                     setMyApplications(prev => prev.map(a => a.id === ratingApp.id ? { ...a, rating: ratingValue } : a));
+                     setRatingApp(null);
+                   } catch (err: any) {
+                     toast.error('Không thể gửi đánh giá: ' + (err.response?.data?.message || err.message));
+                   }
                  }} 
                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
                >

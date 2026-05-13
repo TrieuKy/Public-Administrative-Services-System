@@ -4,7 +4,7 @@ import {
   ArrowRight, Home, ArrowLeft, Loader2, Key, RefreshCw,
   LayersIcon, ChevronDown, ChevronUp,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { toast } from 'react-toastify';
@@ -86,6 +86,7 @@ export function ServiceFormPage() {
   const [expandedInfoGroups, setExpandedInfoGroups] = useState<Record<number, boolean>>({});
 
   const navigate     = useNavigate();
+  const [searchParams] = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load services
@@ -94,7 +95,21 @@ export function ServiceFormPage() {
       .then(res => {
         const s = res.data?.data?.services || [];
         setServices(s);
-        const first = s.find((sv: ServiceObj) => sv.category === 'individual');
+        // Auto-select service từ URL param ?serviceId=...
+        const paramServiceId = searchParams.get('serviceId');
+        const paramCategory  = searchParams.get('category');
+        if (paramServiceId) {
+          const found = s.find((sv: ServiceObj) => sv.id === paramServiceId);
+          if (found) {
+            setSelectedService(found.id);
+            setActiveCategory(found.category);
+            return;
+          }
+        }
+        // Auto-select category từ URL param ?category=...
+        const cat = paramCategory || 'individual';
+        setActiveCategory(cat);
+        const first = s.find((sv: ServiceObj) => sv.category === cat);
         if (first) setSelectedService(first.id);
         else if (s.length > 0) setSelectedService(s[0].id);
       })
@@ -944,15 +959,23 @@ export function ServiceFormPage() {
           </div>
         )}
 
-        {/* Hard error banner: chặn nộp */}
+        {/* Hard error banner: cảnh báo nhưng cho phép override */}
         {hasAnalyzed && anyHardError && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-300 rounded-xl flex items-start gap-3">
-            <span className="text-xl mt-0.5">❌</span>
-            <div>
-              <p className="text-sm font-semibold text-red-800">Tài liệu có lỗi nghiêm trọng, không thể nộp hồ sơ</p>
-              <p className="text-xs text-red-700 mt-0.5">
-                Vui lòng kiểm tra các nhóm đánh dấu ❌ phía trên và tải lại tài liệu hợp lệ.
-              </p>
+          <div className="mb-4 p-4 bg-red-50 border border-red-300 rounded-xl">
+            <div className="flex items-start gap-3 mb-3">
+              <span className="text-xl mt-0.5">❌</span>
+              <div>
+                <p className="text-sm font-semibold text-red-800">AI phát hiện lỗi nghiêm trọng trong tài liệu</p>
+                <p className="text-xs text-red-700 mt-1">
+                  Tài liệu của bạn có thể bị mờ, ảnh bị cắt, hoặc thông tin không khớp.
+                  <strong> Bạn vẫn có thể nộp</strong> — cán bộ sẽ xem xét và phán quyết cuối cùng.
+                </p>
+              </div>
+            </div>
+            <div className="bg-white/80 rounded-lg p-3 text-xs text-gray-600 space-y-1">
+              <p className="font-semibold text-gray-700">💡 Cách khắc phục:</p>
+              <p>• <strong>Xóa file lỗi</strong> ở danh sách tài liệu phía trên và tải lại ảnh chụp rõ hơn</p>
+              <p>• Hoặc <strong>nộp hồ sơ dù có cảnh báo</strong> — cán bộ sẽ liên hệ nếu cần bổ sung</p>
             </div>
           </div>
         )}
@@ -962,24 +985,28 @@ export function ServiceFormPage() {
             Lưu nháp
           </Button>
           <Button
-            disabled={!canSubmit || isSubmitting}
+            disabled={!hasAnalyzed || fileEntries.length === 0 || isSubmitting}
             onClick={() => handleSubmitData(false)}
             className={`flex-[2] py-6 text-lg font-semibold shadow-md ${
-              !canSubmit || isSubmitting
+              !hasAnalyzed || fileEntries.length === 0 || isSubmitting
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : anyWarning
-                  ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                  : 'bg-red-700 hover:bg-red-800 text-white'
+                : anyHardError
+                  ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                  : anyWarning
+                    ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                    : 'bg-red-700 hover:bg-red-800 text-white'
             }`}
           >
             {isSubmitting
               ? 'Đang xử lý...'
-              : !canSubmit
-                ? 'Không thể nộp — kiểm tra lại tài liệu'
-                : anyWarning
-                  ? 'Xác nhận nộp (có cảnh báo AI)'
-                  : 'Xác nhận nộp hồ sơ'}
-            {!isSubmitting && canSubmit && <ArrowRight size={20} className="ml-2" />}
+              : !hasAnalyzed || fileEntries.length === 0
+                ? 'Cần phân tích tài liệu trước'
+                : anyHardError
+                  ? 'Nộp hồ sơ (có cảnh báo AI)'
+                  : anyWarning
+                    ? 'Xác nhận nộp (AI gợi ý kiểm tra lại)'
+                    : 'Xác nhận nộp hồ sơ'}
+            {!isSubmitting && hasAnalyzed && fileEntries.length > 0 && <ArrowRight size={20} className="ml-2" />}
           </Button>
         </div>
       </div>

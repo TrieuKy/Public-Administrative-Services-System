@@ -20,6 +20,7 @@ router.post('/register',     validate(registerSchema), ctrl.register);
 router.get('/verify-email',  ctrl.verifyEmail);
 router.post('/login',        validate(loginSchema), ctrl.login);
 router.post('/refresh',      ctrl.refresh);
+router.post('/forgot-password', ctrl.forgotPassword);
 
 router.get('/me', authMiddleware, ctrl.getMe);
 router.put('/me', authMiddleware, ctrl.updateMe);

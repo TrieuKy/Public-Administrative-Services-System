@@ -3,9 +3,8 @@ import { UserPlus, User, Phone, Mail, Lock, Eye, EyeOff, MapPin, ArrowLeft } fro
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
-// import quochuy from 'figma:asset/0c39003aa259bb6a3d5c50ee4e5afc4504bb9aa4.png';
-// Using emoji as placeholder since image asset is unavailable
-const quochuy = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="60" font-size="80" text-anchor="middle">🦅</text></svg>';
+// Quốc huy Việt Nam - SVG inline
+const quochuy = `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="100" cy="100" r="95" fill="#DA251D" stroke="#FFC72C" stroke-width="6"/><polygon points="100,30 112,72 156,72 120,96 132,138 100,114 68,138 80,96 44,72 88,72" fill="#FFC72C"/><ellipse cx="100" cy="155" rx="30" ry="18" fill="#FFC72C" opacity="0.3"/><text x="100" y="173" font-size="10" fill="#FFC72C" text-anchor="middle" font-family="serif" opacity="0.7">VIỆT NAM</text></svg>')}`;
 import axiosInstance from '../../../utils/axiosInstance';
 import { toast } from 'react-toastify';
 
@@ -32,12 +31,32 @@ export function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorText('');
+
+    // Frontend validation
     if (formData.password !== formData.confirmPassword) {
       setErrorText('Mật khẩu không khớp!');
       return;
     }
+    const cccdClean = formData.cccd.replace(/\s/g, '');
+    if (!/^(\d{9}|\d{12})$/.test(cccdClean)) {
+      setErrorText('CMND/CCCD phải có 9 hoặc 12 chữ số!');
+      return;
+    }
+    if (!/^(0[3-9]\d{8}|0[1-2]\d{8})$/.test(formData.phone.replace(/\s/g, ''))) {
+      setErrorText('Số điện thoại không hợp lệ! Phải là 10 số, bắt đầu bằng 0.');
+      return;
+    }
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setErrorText('Email không hợp lệ!');
+      return;
+    }
+    if (formData.password.length < 8) {
+      setErrorText('Mật khẩu phải có ít nhất 8 ký tự!');
+      return;
+    }
+
     setLoading(true);
-    setErrorText('');
     try {
       const response = await axiosInstance.post('/auth/register', formData);
       const data = response.data;

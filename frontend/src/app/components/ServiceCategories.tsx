@@ -32,6 +32,7 @@ export function ServiceCategories() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('individual');
+  const navigate = useNavigate();
 
   useEffect(() => {
     axiosInstance.get('/services?limit=100')
@@ -84,6 +85,7 @@ export function ServiceCategories() {
               {filtered.map((service) => (
                 <Card
                   key={service.id}
+                  onClick={() => navigate(`/service-form?serviceId=${service.id}`)}
                   className="p-5 hover:shadow-lg transition-all duration-200 cursor-pointer group bg-white border border-gray-200 hover:border-red-200"
                 >
                   <div className="flex items-start justify-between mb-3">
@@ -121,7 +123,10 @@ export function ServiceCategories() {
             </div>
 
             <div className="text-center mt-8">
-              <button className="border border-red-700 text-red-700 hover:bg-red-50 px-6 py-2 rounded-lg text-sm font-medium transition">
+              <button
+                onClick={() => navigate(`/service-form?category=${activeTab}`)}
+                className="border border-red-700 text-red-700 hover:bg-red-50 px-6 py-2 rounded-lg text-sm font-medium transition"
+              >
                 Xem tất cả dịch vụ {CATEGORY_CONFIG.find(c => c.value === activeTab)?.label.toLowerCase()}
               </button>
             </div>

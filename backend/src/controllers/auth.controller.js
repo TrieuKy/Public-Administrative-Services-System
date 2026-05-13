@@ -75,6 +75,7 @@ exports.login = async (req, res) => {
     return success(res, { 
        accessToken, 
        refreshToken, 
+       id: user.id,
        role: user.role, 
        fullName: user.fullName,
        cccd: user.cccd,
@@ -153,6 +154,41 @@ exports.updateMe = async (req, res) => {
     });
 
     return success(res, updatedUser, 'Cập nhật thông tin thành công');
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return error(res, 'Email là bắt buộc', 400);
+
+    const user = await User.findOne({ where: { email } });
+    
+    // Luôn trả về success để không lộ thông tin user tồn tại hay không (bảo mật)
+    if (!user) {
+      return success(res, null, 'Nếu email tồn tại trong hệ thống, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu');
+    }
+
+    // Tạo reset token (dùng lại verifyToken field)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    await user.update({ verifyToken: resetToken });
+
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+    
+    let emailSent = false;
+    try {
+      await emailService.sendVerificationEmail(email, resetToken, 'reset');
+      emailSent = true;
+    } catch (emailErr) {
+      console.log('\n=================================================');
+      console.log('⚠️  Link đặt lại mật khẩu (thủ công):');
+      console.log(resetUrl);
+      console.log('=================================================\n');
+    }
+
+    return success(res, null, 'Nếu email tồn tại trong hệ thống, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu');
   } catch (err) {
     return error(res, err.message, 500);
   }

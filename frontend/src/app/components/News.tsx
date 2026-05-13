@@ -62,7 +62,14 @@ export function News() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {posts.map((item) => (
-            <Card key={item.id} className="overflow-hidden hover:shadow-xl transition-shadow cursor-pointer group">
+            <Card
+              key={item.id}
+              onClick={() => {
+                // Nếu có trang chi tiết bài viết thì navigate, không thì toast
+                window.open(`/posts/${item.id}`, '_self');
+              }}
+              className="overflow-hidden hover:shadow-xl transition-shadow cursor-pointer group"
+            >
               <div className="relative h-48 overflow-hidden bg-gray-200">
                 {item.imageUrl ? (
                   <img

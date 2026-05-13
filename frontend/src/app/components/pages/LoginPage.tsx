@@ -5,9 +5,8 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'react-toastify';
-// import quochuy from 'figma:asset/0c39003aa259bb6a3d5c50ee4e5afc4504bb9aa4.png';
-// Using emoji as placeholder since image asset is unavailable
-const quochuy = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50" y="60" font-size="80" text-anchor="middle">🦅</text></svg>';
+// Quốc huy Việt Nam - SVG inline
+const quochuy = `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="100" cy="100" r="95" fill="#DA251D" stroke="#FFC72C" stroke-width="6"/><polygon points="100,30 112,72 156,72 120,96 132,138 100,114 68,138 80,96 44,72 88,72" fill="#FFC72C"/><ellipse cx="100" cy="155" rx="30" ry="18" fill="#FFC72C" opacity="0.3"/><text x="100" y="173" font-size="10" fill="#FFC72C" text-anchor="middle" font-family="serif" opacity="0.7">VIỆT NAM</text></svg>')}`;
 import axiosInstance from '../../../utils/axiosInstance';
 
 export function LoginPage() {
@@ -20,6 +19,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState('');
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('rememberMe') === 'true');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +38,14 @@ export function LoginPage() {
       });
       const data = response.data;
       if (data.success && data.data) {
+        // Xử lý ghi nhớ đăng nhập
+        localStorage.setItem('rememberMe', rememberMe ? 'true' : 'false');
+        if (rememberMe) {
+          localStorage.setItem('savedIdentifier', identifier);
+        } else {
+          localStorage.removeItem('savedIdentifier');
+        }
+
         login(data.data.accessToken, {
           fullName: data.data.fullName || '',
           role: data.data.role || 'citizen',
@@ -183,12 +191,17 @@ export function LoginPage() {
 
           <div className="flex items-center justify-between text-sm">
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="w-4 h-4 text-red-700 border-gray-300 rounded focus:ring-red-500" />
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 text-red-700 border-gray-300 rounded focus:ring-red-500 cursor-pointer"
+              />
               <span className="text-gray-600">Ghi nhớ đăng nhập</span>
             </label>
-            <a href="/forgot-password" className="text-red-700 hover:text-red-800">
+            <Link to="/forgot-password" className="text-red-700 hover:text-red-800">
               Quên mật khẩu?
-            </a>
+            </Link>
           </div>
 
           <Button type="submit" disabled={loading} className="w-full bg-red-700 hover:bg-red-800 text-white py-3">
