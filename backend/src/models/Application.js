@@ -25,6 +25,7 @@ const Application = sequelize.define('Application', {
     defaultValue: 'FREE',
   },
   paymentCode:   { type: DataTypes.STRING },
+  paymentDeadline:{ type: DataTypes.DATE },
   copies:        { type: DataTypes.INTEGER, defaultValue: 1 },
   feeTotal:      { type: DataTypes.INTEGER, defaultValue: 0 },
 }, {

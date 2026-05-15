@@ -241,6 +241,30 @@ app.get('/api/list-models', async (req, res) => {
   }
 });
 
+// ── POST /api/extract-fields — trích xuất trường thông tin từ template ───────────
+app.post('/api/extract-fields', async (req, res) => {
+  const { apiKey, text } = req.body;
+  const key = apiKey || process.env.GEMINI_API_KEY;
+  if (!key || !text)
+    return res.status(400).json({ error: { message: 'Thiếu apiKey hoặc text' } });
+
+  const body = {
+    contents: [{
+      parts: [
+        { text: `Đây là nội dung của một mẫu đơn / giấy tờ. Hãy trích xuất tất cả các thông tin mà người dân cần phải điền vào (ví dụ: Họ và tên, Ngày sinh, Địa chỉ, Số CMND...). Trả về định dạng JSON thuần là một mảng các chuỗi. Ví dụ: ["Họ và tên", "Ngày sinh", "Số CMND/CCCD", "Nơi cấp"].\n\nNội dung văn bản:\n${text}` },
+      ],
+    }],
+    generationConfig: { temperature: 0.1, maxOutputTokens: 1000 },
+  };
+
+  try {
+    const { text: aiText } = await callGemini(key, body);
+    res.json({ fields: extractJSON(aiText) });
+  } catch (err) {
+    res.status(400).json({ error: { message: err.message } });
+  }
+});
+
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
   res.status(500).json({ error: { message: err.message } });

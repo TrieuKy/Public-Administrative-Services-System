@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+// Restart nodemon 1
 
 const routes = require('./src/routes');
 const { sequelize } = require('./src/config/database');

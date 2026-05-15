@@ -291,16 +291,16 @@ export function OfficerApplications() {
                       );
                     })()}
                   </td>
-                  <td className="p-4">{renderStatusTag(app.status)}</td>
                   {/* Payment status cell */}
                   <td className="p-4">
                     {(() => {
                       const ps = app.paymentStatus;
-                      if (!ps || ps === 'FREE') return <span className="text-xs text-gray-400">Miễn phí</span>;
+                      if (!ps || ps === 'FREE') return <span className="text-xs text-gray-400 font-medium">Miễn phí</span>;
                       if (ps === 'PAID') return <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-semibold flex items-center gap-1 w-fit mx-auto"><CheckCircle size={11}/>Đã đóng</span>;
                       return <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full font-semibold flex items-center gap-1 w-fit mx-auto animate-pulse"><AlertCircle size={11}/>Chưa đóng phí</span>;
                     })()}
                   </td>
+                  <td className="p-4">{renderStatusTag(app.status)}</td>
                   <td className="p-4">
                     <div className="flex justify-center">
                       <button onClick={async () => {

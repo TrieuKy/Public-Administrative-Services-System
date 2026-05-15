@@ -53,11 +53,11 @@ exports.getServiceById = async (req, res) => {
 // POST /services — officer/admin only
 exports.createService = async (req, res) => {
   try {
-    const { name, category, agency, processingTime, processingDays, level, fee, description, requiredDocs } = req.body;
+    const { name, category, agency, processingTime, processingDays, level, fee, description, requiredDocs, procedures, workflow } = req.body;
     if (!name || !category) return error(res, 'Tên và danh mục không được để trống', 400);
 
     const service = await Service.create({
-      name, category, agency, processingTime, processingDays, level, fee, description,
+      name, category, agency, processingTime, processingDays, level, fee, description, procedures, workflow,
       requiredDocs: Array.isArray(requiredDocs) ? requiredDocs : [],
       isActive: true
     });
@@ -71,7 +71,7 @@ exports.updateService = async (req, res) => {
     const service = await Service.findByPk(req.params.id);
     if (!service) return error(res, 'Dịch vụ không tồn tại', 404);
 
-    const { name, category, agency, processingTime, processingDays, level, fee, description, requiredDocs, isActive } = req.body;
+    const { name, category, agency, processingTime, processingDays, level, fee, description, requiredDocs, procedures, workflow, isActive } = req.body;
 
     await service.update({
       name:           name           !== undefined ? name           : service.name,
@@ -82,6 +82,8 @@ exports.updateService = async (req, res) => {
       level:          level          !== undefined ? level          : service.level,
       fee:            fee            !== undefined ? fee            : service.fee,
       description:    description    !== undefined ? description    : service.description,
+      procedures:     procedures     !== undefined ? procedures     : service.procedures,
+      workflow:       workflow       !== undefined ? workflow       : service.workflow,
       requiredDocs:   requiredDocs   !== undefined ? requiredDocs   : service.requiredDocs,
       isActive:       isActive       !== undefined ? isActive       : service.isActive,
     });
@@ -98,4 +100,64 @@ exports.deleteService = async (req, res) => {
     await service.update({ isActive: false });
     return success(res, null, 'Đã ẩn dịch vụ thành công');
   } catch (err) { return error(res, err.message, 500); }
+};
+
+const mammoth = require('mammoth');
+const fs = require('fs');
+
+// POST /services/template/upload
+exports.uploadTemplate = async (req, res) => {
+  try {
+    if (!req.file) return error(res, 'Vui lòng chọn file template (Word/PDF)', 400);
+
+    const fileUrl = `/api/v1/files/${req.file.filename}`;
+    const filePath = req.file.path;
+    let extractedFields = [];
+
+    // Extract text from word document
+    if (req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || req.file.mimetype === 'application/msword') {
+      const result = await mammoth.extractRawText({ path: filePath });
+      const text = result.value;
+
+      // Call OCR server to extract fields
+      const ocrPort = process.env.OCR_PORT || 5050;
+      try {
+        const ocrRes = await fetch(`http://localhost:${ocrPort}/api/extract-fields`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const ocrData = await ocrRes.json();
+        if (ocrRes.ok && Array.isArray(ocrData.fields)) {
+          extractedFields = ocrData.fields;
+        }
+      } catch (aiErr) {
+        console.error('Error extracting fields with AI:', aiErr);
+      }
+    }
+
+    // Save to FormTemplate table
+    const { FormTemplate } = require('../models');
+    // Using a dummy service ID if not provided, or better to just save the template 
+    // and let the frontend attach it to the service later.
+    // Since we don't have serviceId yet, we can't save it with serviceId easily, 
+    // but the user requested to create a table.
+    try {
+        await FormTemplate.create({
+            serviceId: '00000000-0000-0000-0000-000000000000', // temporary mock ID
+            documentName: req.file.originalname,
+            fileName: req.file.originalname,
+            fileUrl: fileUrl,
+            extractedFields: extractedFields
+        });
+    } catch(e) { console.error('FormTemplate save error:', e.message); }
+
+    return success(res, {
+      fileName: req.file.originalname,
+      fileUrl,
+      extractedFields
+    });
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
 };

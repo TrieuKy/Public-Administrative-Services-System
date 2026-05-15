@@ -216,6 +216,10 @@ function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'procedure' | 'system'>('procedure');
   const [applications, setApplications] = useState<any[]>([]);
+  const [readIds, setReadIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('notif_read') || '[]')); }
+    catch { return new Set(); }
+  });
   const ref = useRef<HTMLDivElement>(null);
 
   // System news (static demo — có thể fetch từ API posts sau này)
@@ -260,6 +264,26 @@ function NotificationBell() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // Persist readIds to localStorage
+  const markRead = (id: string) => {
+    setReadIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      localStorage.setItem('notif_read', JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  const markAllRead = () => {
+    const allIds = procedureNotifs.map(n => n.id);
+    setReadIds(prev => {
+      const next = new Set(prev);
+      allIds.forEach(id => next.add(id));
+      localStorage.setItem('notif_read', JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   // Generate procedure notifications from applications
   const procedureNotifs = applications.flatMap(app => {
@@ -322,7 +346,8 @@ function NotificationBell() {
     return notifs;
   });
 
-  const totalUnread = procedureNotifs.length + systemNews.length;
+  const unreadProcedure = procedureNotifs.filter(n => !readIds.has(n.id));
+  const totalUnread = unreadProcedure.length + systemNews.length;
 
   const typeIcon = (type: string) => {
     switch (type) {
@@ -358,9 +383,19 @@ function NotificationBell() {
               <Bell size={16} />
               Thông báo của tôi
             </div>
-            <button onClick={() => setOpen(false)} className="text-white/70 hover:text-white transition">
-              <X size={18} />
-            </button>
+            <div className="flex items-center gap-2">
+              {unreadProcedure.length > 0 && (
+                <button
+                  onClick={markAllRead}
+                  className="text-white/80 hover:text-white text-[11px] underline underline-offset-2 transition"
+                >
+                  Đọc tất cả
+                </button>
+              )}
+              <button onClick={() => setOpen(false)} className="text-white/70 hover:text-white transition">
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -375,9 +410,9 @@ function NotificationBell() {
             >
               <Clock size={13} />
               Thủ tục của tôi
-              {procedureNotifs.length > 0 && (
+              {unreadProcedure.length > 0 && (
                 <span className="bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
-                  {procedureNotifs.length}
+                  {unreadProcedure.length}
                 </span>
               )}
             </button>
@@ -408,29 +443,41 @@ function NotificationBell() {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {procedureNotifs.map(n => (
-                    <div key={n.id} className={`px-4 py-3 hover:bg-gray-50 transition ${
-                      n.type === 'payment' ? 'bg-purple-50/40' : ''
-                    }`}>
-                      <div className="flex gap-3">
-                        {typeIcon(n.type)}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-800">{n.title}</p>
-                          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{n.body}</p>
-                          <p className="text-xs text-red-600 font-mono mt-1 font-semibold">{n.appCode}</p>
-                          {n.type === 'payment' && (
-                            <Link
-                              to="/payment"
-                              onClick={() => setOpen(false)}
-                              className="inline-block mt-1 text-xs bg-purple-600 text-white px-2 py-0.5 rounded font-medium hover:bg-purple-700 transition"
-                            >
-                              Thanh toán ngay →
-                            </Link>
-                          )}
+                  {procedureNotifs.map(n => {
+                    const isRead = readIds.has(n.id);
+                    return (
+                      <div
+                        key={n.id}
+                        onClick={() => markRead(n.id)}
+                        className={`px-4 py-3 hover:bg-gray-50 transition cursor-pointer ${
+                          isRead ? 'opacity-60' : n.type === 'payment' ? 'bg-purple-50/40' : 'bg-blue-50/30'
+                        }`}
+                      >
+                        <div className="flex gap-3">
+                          {typeIcon(n.type)}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-gray-800">{n.title}</p>
+                              {!isRead && (
+                                <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{n.body}</p>
+                            <p className="text-xs text-red-600 font-mono mt-1 font-semibold">{n.appCode}</p>
+                            {n.type === 'payment' && (
+                              <Link
+                                to="/payment"
+                                onClick={() => { setOpen(false); markRead(n.id); }}
+                                className="inline-block mt-1 text-xs bg-purple-600 text-white px-2 py-0.5 rounded font-medium hover:bg-purple-700 transition"
+                              >
+                                Thanh toán ngay →
+                              </Link>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )
             )}

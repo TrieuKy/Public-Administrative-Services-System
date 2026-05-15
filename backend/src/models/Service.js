@@ -13,6 +13,8 @@ const Service = sequelize.define('Service', {
   fee:            { type: DataTypes.STRING, defaultValue: 'Miễn phí' },
   currentFee:     { type: DataTypes.INTEGER, defaultValue: 0 },
   requiredDocs:   { type: DataTypes.JSONB, defaultValue: [] },
+  procedures:     { type: DataTypes.TEXT }, // Trình tự thực hiện
+  workflow:       { type: DataTypes.TEXT }, // Quy trình xử lý
   isActive:       { type: DataTypes.BOOLEAN, defaultValue: true },
 }, { tableName: 'services' });
 

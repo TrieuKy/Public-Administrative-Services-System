@@ -9,6 +9,7 @@ const Schedule    = require('./Schedule');
 const ApplicationHistory = require('./ApplicationHistory');
 const Post        = require('./Post');
 const Payment     = require('./Payment');
+const FormTemplate = require('./FormTemplate');
 
 // Quan hệ
 User.hasMany(Application,    { foreignKey: 'userId',    as: 'applications' });
@@ -17,6 +18,9 @@ Application.belongsTo(User,  { foreignKey: 'officerId', as: 'officer' });
 
 Service.hasMany(Application,       { foreignKey: 'serviceId' });
 Application.belongsTo(Service,     { foreignKey: 'serviceId', as: 'service' });
+
+Service.hasMany(FormTemplate, { foreignKey: 'serviceId', as: 'formTemplates' });
+FormTemplate.belongsTo(Service, { foreignKey: 'serviceId', as: 'service' });
 
 Application.hasMany(Document,      { foreignKey: 'applicationId', as: 'documents' });
 Document.belongsTo(Application,    { foreignKey: 'applicationId' });
@@ -45,4 +49,4 @@ User.hasMany(Payment,        { foreignKey: 'userId', as: 'payments' });
 Payment.belongsTo(User,      { foreignKey: 'userId', as: 'payer' });
 Payment.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
 
-module.exports = { User, Service, Application, Document, Notification, Comment, AiLog, Schedule, ApplicationHistory, Post, Payment };
+module.exports = { User, Service, Application, Document, Notification, Comment, AiLog, Schedule, ApplicationHistory, Post, Payment, FormTemplate };

@@ -586,11 +586,19 @@ export function ProfilePage() {
                           </div>
                           <div className={`text-xs font-medium mb-3 ${getStatusColor(app.status).split(' ')[0]}`}>{getStatusText(app.status)}</div>
                           {app.paymentStatus === 'UNPAID' && (
-                            <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700 flex items-center gap-2">
-                              <CreditCard size={12} />
-                              Hồ sơ này chưa được đóng lệ phí. Vui lòng{' '}
-                              <a href="/payment" className="font-bold underline">thanh toán trực tuyến</a>
-                              {app.paymentCode && <span className="ml-1">— Mã: <span className="font-mono font-bold text-orange-700">{app.paymentCode}</span></span>}
+                            <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                              <div className="flex items-center gap-2 mb-1">
+                                <CreditCard size={12} />
+                                <span>Hồ sơ này chưa được đóng lệ phí. Vui lòng{' '}
+                                <a href="/payment" className="font-bold underline">thanh toán trực tuyến</a>
+                                {app.paymentCode && <span className="ml-1">— Mã: <span className="font-mono font-bold text-orange-700">{app.paymentCode}</span></span>}
+                                </span>
+                              </div>
+                              {app.paymentDeadline && (
+                                <div className="ml-5 font-semibold text-red-800">
+                                  Hạn thanh toán: Trước {new Date(app.paymentDeadline).toLocaleTimeString('vi-VN')} ngày {new Date(app.paymentDeadline).toLocaleDateString('vi-VN')}
+                                </div>
+                              )}
                             </div>
                           )}
                           

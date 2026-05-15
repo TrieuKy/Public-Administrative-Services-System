@@ -165,6 +165,24 @@ export function TrackingPage() {
               </div>
             </div>
 
+            {searchResult.paymentStatus && searchResult.paymentStatus !== 'FREE' && (
+              <div className={`mb-6 p-4 border rounded-lg ${searchResult.paymentStatus === 'PAID' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                <div className="flex items-center gap-2 mb-2 font-semibold">
+                  {searchResult.paymentStatus === 'PAID' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+                  Tình trạng đóng phí: {searchResult.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                </div>
+                {searchResult.paymentStatus === 'UNPAID' && (
+                  <div className="text-sm ml-6 space-y-1">
+                    <p>Mã thanh toán: <span className="font-mono font-bold text-orange-700">{searchResult.paymentCode}</span></p>
+                    {searchResult.paymentDeadline && (
+                      <p>Hạn thanh toán: Trước {new Date(searchResult.paymentDeadline).toLocaleTimeString('vi-VN')} ngày {new Date(searchResult.paymentDeadline).toLocaleDateString('vi-VN')}</p>
+                    )}
+                    <p className="mt-2 text-xs">Vui lòng <a href="/payment" className="underline font-bold">thanh toán trực tuyến</a> để hồ sơ được tiếp tục xử lý.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Timeline */}
             <div className="border-t pt-6">
               <h3 className="font-medium text-gray-900 mb-4">Lịch sử xử lý:</h3>

@@ -107,9 +107,10 @@ async function callVisionAI(imageBase64, mimeType, prompt) {
     } catch (err) {
       const is429 = err.message?.includes('429') || err.message?.includes('quota') || err.message?.includes('Too Many Requests');
       const is404 = err.message?.includes('404') || err.message?.includes('not found');
-      if (is429 || is404) {
-        console.warn(`[AI] ${modelName} lỗi (${is429 ? '429 quota' : '404 not found'}), thử model khác...`);
-        if (is429) await sleep(5000); // chờ 5s trước khi thử model khác
+      const is503 = err.message?.includes('503') || err.message?.includes('Service Unavailable');
+      if (is429 || is404 || is503) {
+        console.warn(`[AI] ${modelName} lỗi (${is429 ? '429 quota' : is404 ? '404 not found' : '503 unavailable'}), thử model khác...`);
+        if (is429 || is503) await sleep(2000); // chờ 2s trước khi thử model khác
         continue;
       }
       console.error(`[AI] ${modelName} lỗi không xác định:`, err.message);
@@ -125,13 +126,17 @@ async function callVisionAI(imageBase64, mimeType, prompt) {
 // 1. CHATBOT — Gemini với model fallback (2.5-flash → 2.0-flash → 2.0-flash-lite)
 // ════════════════════════════════════════════════════════════
 const SYSTEM_INSTRUCTION = `Bạn là trợ lý ảo của Cổng Dịch vụ công trực tuyến Việt Nam.
-Nhiệm vụ của bạn là hỗ trợ công dân về các thủ tục hành chính:
+Nhiệm vụ ĐỘC QUYỀN của bạn là hỗ trợ công dân về các thủ tục hành chính, dịch vụ công:
 - Đăng ký hộ tịch, khai sinh, kết hôn, khai tử
 - Đăng ký hộ kinh doanh, giấy phép
 - Chứng thực giấy tờ, cư trú, tạm trú
-- Tra cứu hồ sơ, hướng dẫn nộp hồ sơ trực tuyến
-Trả lời ngắn gọn, thân thiện, rõ ràng bằng tiếng Việt.
-Nếu không biết thông tin cụ thể, hướng dẫn công dân liên hệ UBND xã/phường nơi cư trú.`;
+- Tra cứu hồ sơ, lệ phí, hướng dẫn nộp hồ sơ trực tuyến
+
+QUY TẮC NGHIÊM NGẶT (KHÔNG ĐƯỢC VI PHẠM):
+1. TUYỆT ĐỐI KHÔNG trả lời bất kỳ câu hỏi nào ngoài phạm vi dịch vụ công, hành chính nhà nước.
+2. Nếu người dùng hỏi về thời tiết, lịch sử, toán học, lập trình, giải trí, hoặc bất kỳ chủ đề nào khác, bạn PHẢI từ chối và trả lời: "Xin lỗi, tôi chỉ là trợ lý ảo hỗ trợ về Dịch vụ công và Thủ tục hành chính. Tôi không thể trả lời các câu hỏi ngoài phạm vi này."
+3. Trả lời ngắn gọn, thân thiện, rõ ràng bằng tiếng Việt.
+4. Nếu không biết thông tin cụ thể về thủ tục, hướng dẫn công dân liên hệ UBND xã/phường nơi cư trú.`;
 
 const CHAT_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 
@@ -149,9 +154,10 @@ exports.chat = async (message, history = []) => {
     } catch (err) {
       const is429 = err.message?.includes('429') || err.message?.includes('quota') || err.message?.includes('Too Many Requests');
       const is404 = err.message?.includes('404') || err.message?.includes('not found');
-      if (is429 || is404) {
-        console.warn(`[Chat] ${modelName} không khả dụng (${is429 ? 'quota' : '404'}), thử model tiếp theo...`);
-        if (is429) await sleepMs(3000);
+      const is503 = err.message?.includes('503') || err.message?.includes('Service Unavailable');
+      if (is429 || is404 || is503) {
+        console.warn(`[Chat] ${modelName} không khả dụng (${is429 ? 'quota' : is404 ? '404' : '503'}), thử model tiếp theo...`);
+        if (is429 || is503) await sleepMs(2000);
         continue;
       }
       throw err;
@@ -517,9 +523,10 @@ Lưu ý: imageIndexes từ 0. Ngày DD/MM/YYYY → YYYY-MM-DD.`;
       } catch (sdkErr) {
         const is429 = sdkErr.message?.includes('429') || sdkErr.message?.includes('quota');
         const is404 = sdkErr.message?.includes('404') || sdkErr.message?.includes('not found');
-        console.warn(`[OCR-GROUP] ${modelName} lỗi (${is429 ? '429' : is404 ? '404' : 'other'}):`, sdkErr.message);
-        if (is429) await sleep(5000);
-        if (!is429 && !is404) throw sdkErr; // lỗi khác → throw ngay
+        const is503 = sdkErr.message?.includes('503') || sdkErr.message?.includes('Service Unavailable');
+        console.warn(`[OCR-GROUP] ${modelName} lỗi (${is429 ? '429' : is404 ? '404' : is503 ? '503' : 'other'}):`, sdkErr.message);
+        if (is429 || is503) await sleep(2000);
+        if (!is429 && !is404 && !is503) throw sdkErr; // lỗi khác → throw ngay
       }
     }
 

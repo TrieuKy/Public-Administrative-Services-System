@@ -5,6 +5,13 @@ import { Card } from '../ui/card';
 import { toast } from 'react-toastify';
 import axiosInstance from '../../../utils/axiosInstance';
 
+interface RequiredDoc {
+  name: string;
+  templateUrl?: string;
+  templateName?: string;
+  extractedFields?: string[];
+}
+
 interface Service {
   id: string;
   name: string;
@@ -15,7 +22,9 @@ interface Service {
   level: string;
   fee: string;
   description: string;
-  requiredDocs: string[];
+  procedures?: string;
+  workflow?: string;
+  requiredDocs: RequiredDoc[] | string[];
   isActive: boolean;
 }
 
@@ -34,7 +43,9 @@ const EMPTY_FORM = {
   level: 'Mức độ 4',
   fee: 'Miễn phí',
   description: '',
-  requiredDocs: [''],
+  procedures: '',
+  workflow: '',
+  requiredDocs: [{ name: '' }] as RequiredDoc[],
   isActive: true,
 };
 
@@ -79,7 +90,11 @@ export function OfficerServicesPage() {
       level:          svc.level || '',
       fee:            svc.fee || '',
       description:    svc.description || '',
-      requiredDocs:   svc.requiredDocs?.length ? svc.requiredDocs : [''],
+      procedures:     svc.procedures || '',
+      workflow:       svc.workflow || '',
+      requiredDocs:   svc.requiredDocs?.length 
+                        ? svc.requiredDocs.map(d => typeof d === 'string' ? { name: d } : d) as RequiredDoc[] 
+                        : [{ name: '' }],
       isActive:       svc.isActive,
     });
     setShowForm(true);
@@ -89,7 +104,7 @@ export function OfficerServicesPage() {
     if (!form.name.trim()) { toast.error('Vui lòng nhập tên dịch vụ'); return; }
     const payload = {
       ...form,
-      requiredDocs: form.requiredDocs.filter(d => d.trim() !== '')
+      requiredDocs: form.requiredDocs.filter(d => d.name.trim() !== '')
     };
     setSaving(true);
     try {
@@ -120,11 +135,37 @@ export function OfficerServicesPage() {
     }
   };
 
-  const addDocField = () => setForm(f => ({ ...f, requiredDocs: [...f.requiredDocs, ''] }));
+  const addDocField = () => setForm(f => ({ ...f, requiredDocs: [...f.requiredDocs, { name: '' }] }));
   const removeDocField = (i: number) => setForm(f => ({ ...f, requiredDocs: f.requiredDocs.filter((_, idx) => idx !== i) }));
   const updateDoc = (i: number, val: string) => setForm(f => {
-    const docs = [...f.requiredDocs]; docs[i] = val; return { ...f, requiredDocs: docs };
+    const docs = [...f.requiredDocs]; docs[i].name = val; return { ...f, requiredDocs: docs };
   });
+
+  const handleUploadTemplate = async (index: number, file: File) => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      toast.info('Đang tải lên và trích xuất trường thông tin...');
+      const res = await axiosInstance.post('/services/template/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const data = res.data.data;
+      setForm(f => {
+        const docs = [...f.requiredDocs];
+        docs[index] = {
+          ...docs[index],
+          templateUrl: data.fileUrl,
+          templateName: data.fileName,
+          extractedFields: data.extractedFields
+        };
+        return { ...f, requiredDocs: docs };
+      });
+      toast.success('Đã tải lên form mẫu và trích xuất dữ liệu');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Có lỗi khi tải lên template');
+    }
+  };
 
   const filtered = services.filter(s => s.category === activeTab);
 
@@ -315,29 +356,65 @@ export function OfficerServicesPage() {
                     <ListPlus size={15} /> Thêm giấy tờ
                   </button>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {form.requiredDocs.map((doc, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={doc}
-                        onChange={e => updateDoc(i, e.target.value)}
-                        placeholder={`Giấy tờ ${i + 1} (VD: CMND/CCCD)`}
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
-                      />
-                      {form.requiredDocs.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeDocField(i)}
-                          className="p-2 text-gray-400 hover:text-red-500 transition"
-                        >
-                          <Minus size={15} />
-                        </button>
+                    <div key={i} className="flex flex-col gap-2 p-3 border border-gray-100 rounded-lg bg-gray-50/50">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={doc.name}
+                          onChange={e => updateDoc(i, e.target.value)}
+                          placeholder={`Giấy tờ ${i + 1} (VD: CMND/CCCD)`}
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm bg-white"
+                        />
+                        {form.requiredDocs.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeDocField(i)}
+                            className="p-2 text-gray-400 hover:text-red-500 transition"
+                            title="Xóa giấy tờ"
+                          >
+                            <Minus size={15} />
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <label className="cursor-pointer text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-red-600 transition">
+                          <Plus size={14} />
+                          {doc.templateName ? 'Thay đổi Form Mẫu' : 'Thêm Form Mẫu (Word/PDF)'}
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            accept=".doc,.docx,.pdf"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) handleUploadTemplate(i, e.target.files[0]);
+                            }}
+                          />
+                        </label>
+                        {doc.templateName && (
+                          <span className="text-xs text-blue-600 truncate max-w-[200px]" title={doc.templateName}>
+                            {doc.templateName}
+                          </span>
+                        )}
+                      </div>
+
+                      {doc.extractedFields && doc.extractedFields.length > 0 && (
+                        <div className="mt-1">
+                          <p className="text-[11px] font-medium text-gray-500 mb-1">Các trường thông tin cần điền (AI trích xuất):</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {doc.extractedFields.map((field, idx) => (
+                              <span key={idx} className="px-2 py-0.5 rounded text-[10px] bg-red-50 text-red-700 border border-red-100">
+                                {field}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500 mt-1.5">Danh sách này sẽ hiển thị trong trang "Nộp hồ sơ trực tuyến"</p>
+                <p className="text-xs text-gray-500 mt-2">Danh sách này sẽ hiển thị trong trang "Nộp hồ sơ trực tuyến". Bạn có thể đính kèm form mẫu để tự động yêu cầu người dân điền thông tin.</p>
               </div>
 
               <div>
@@ -346,6 +423,28 @@ export function OfficerServicesPage() {
                   value={form.description}
                   onChange={e => setForm({ ...form, description: e.target.value })}
                   placeholder="Mô tả thêm về dịch vụ..."
+                  rows={2}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Trình tự thực hiện (tùy chọn)</label>
+                <textarea
+                  value={form.procedures}
+                  onChange={e => setForm({ ...form, procedures: e.target.value })}
+                  placeholder="Các bước công dân cần thực hiện..."
+                  rows={4}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Quy trình xử lý (tùy chọn)</label>
+                <textarea
+                  value={form.workflow}
+                  onChange={e => setForm({ ...form, workflow: e.target.value })}
+                  placeholder="Quy trình xử lý nội bộ của cơ quan..."
                   rows={2}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm resize-none"
                 />

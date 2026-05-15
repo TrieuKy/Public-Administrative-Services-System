@@ -34,6 +34,7 @@ export function PaymentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
   const [paymentId, setPaymentId] = useState<string>('');
+  const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<'pay' | 'history'>('pay');
   const [history, setHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -75,6 +76,11 @@ export function PaymentPage() {
       });
       if (res.data.success) {
         setPaymentId(res.data.data.paymentId);
+        if (res.data.data.amount !== undefined) {
+          setPaymentAmount(res.data.data.amount);
+        } else {
+          setPaymentAmount(fee);
+        }
         setStep(2);
       }
     } catch (err: any) {
@@ -249,7 +255,7 @@ export function PaymentPage() {
                       {step > s ? '✓' : s}
                     </div>
                     <span className={`text-xs hidden sm:block ${step >= s ? 'text-[#cc6633] font-medium' : 'text-gray-400'}`}>
-                      {s === 1 ? 'Nhập mã HS' : s === 2 ? 'Xác nhận' : 'Biên lai'}
+                      {s === 1 ? 'Nhập Mã' : s === 2 ? 'Xác nhận' : 'Biên lai'}
                     </span>
                     {i < 2 && <div className={`h-px flex-1 ${step > s ? 'bg-[#cc6633]' : 'bg-gray-200'}`} />}
                   </div>
@@ -261,9 +267,9 @@ export function PaymentPage() {
               {/* Step 1 */}
               {step === 1 && (
                 <div className="space-y-4">
-                  <p className="text-sm text-gray-600">Nhập <strong>Mã hồ sơ</strong> để tra cứu thông tin cần nộp.</p>
+                  <p className="text-sm text-gray-600">Nhập <strong>Mã hồ sơ</strong> hoặc <strong>Mã thanh toán</strong> để tra cứu thông tin cần nộp.</p>
                   <div>
-                    <label className="block text-xs uppercase text-gray-500 font-bold mb-1">Mã hồ sơ</label>
+                    <label className="block text-xs uppercase text-gray-500 font-bold mb-1">Mã hồ sơ / Mã thanh toán</label>
                     <input type="text" value={searchCode} onChange={e => setSearchCode(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleSearch()}
                       placeholder="Ví dụ: HS2026VN..." className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:border-[#cc6633] transition" />
@@ -284,8 +290,8 @@ export function PaymentPage() {
                   </div>
                   <div className="text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg p-6">
                     <p className="text-gray-500 text-sm mb-1">Tổng tiền thanh toán</p>
-                    <p className="text-4xl font-extrabold text-[#cc6633]">{formatCurrency(fee)}</p>
-                    {fee === 0 && <p className="text-green-600 text-sm mt-1 font-medium">Miễn phí theo quy định</p>}
+                    <p className="text-4xl font-extrabold text-[#cc6633]">{formatCurrency(paymentAmount)}</p>
+                    {paymentAmount === 0 && <p className="text-green-600 text-sm mt-1 font-medium">Miễn phí theo quy định</p>}
                   </div>
                   <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs px-3 py-2 rounded-lg">
                     ⚠ Vui lòng kiểm tra lại thông tin trước khi xác nhận thanh toán.

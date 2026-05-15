@@ -28,6 +28,7 @@ import { OfficerServicesPage } from './components/pages/OfficerServicesPage';
 import { OfficerReviews } from './components/pages/OfficerReviews';
 import { VerifyEmailPage } from './components/pages/VerifyEmailPage';
 import { OfficerFeedbacks } from './components/pages/OfficerFeedbacks';
+import { OfficerPayments } from './components/pages/OfficerPayments';
 import { NotFoundPage } from './components/pages/NotFoundPage';
 import { ForgotPasswordPage } from './components/pages/ForgotPasswordPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -90,6 +91,7 @@ function AppContent() {
             <Route path="services" element={<OfficerServicesPage />} />
             <Route path="reviews" element={<OfficerReviews />} />
             <Route path="feedbacks" element={<OfficerFeedbacks />} />
+            <Route path="payments" element={<OfficerPayments />} />
             <Route path="reports" element={<OfficerReports />} />
             <Route path="schedules" element={<OfficerSchedules />} />
             <Route path="settings" element={<OfficerSettings />} />

@@ -1,4 +1,4 @@
-const { Application, Document, Service, User, ApplicationHistory } = require('../models');
+const { Application, Document, Service, User, ApplicationHistory, Payment } = require('../models');
 const { success, error } = require('../utils/response');
 const emailService = require('../services/email.service');
 const path = require('path');
@@ -105,17 +105,28 @@ exports.submitApplication = async (req, res) => {
     deadline.setDate(deadline.getDate() + processingDays);
 
     // Tính phí và trạng thái thanh toán
-    const unitFee = app.service?.currentFee || 0;
+    let unitFee = app.service?.currentFee || 0;
+    if (unitFee === 0 && app.service?.fee) {
+      const match = app.service.fee.replace(/\./g, '').match(/\d+/);
+      if (match) {
+        unitFee = parseInt(match[0], 10);
+      }
+    }
     const validCopies = Math.min(Math.max(parseInt(copies) || 1, 1), 5);
     const feeTotal = unitFee * validCopies;
     const hasPayment = unitFee > 0;
 
     // Sinh mã thanh toán nếu cần đóng phí
     let paymentCode = null;
+    let paymentDeadline = null;
     if (hasPayment) {
       const now = new Date();
       const rand = Math.floor(10000 + Math.random() * 90000);
       paymentCode = `PAY${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${rand}`;
+      
+      // Hạn thanh toán: 3 ngày kể từ lúc nộp
+      paymentDeadline = new Date(now);
+      paymentDeadline.setDate(paymentDeadline.getDate() + 3);
     }
 
     await app.update({
@@ -126,6 +137,7 @@ exports.submitApplication = async (req, res) => {
       feeTotal,
       paymentStatus: hasPayment ? 'UNPAID' : 'FREE',
       paymentCode,
+      paymentDeadline,
     });
     
     await ApplicationHistory.create({
@@ -134,6 +146,18 @@ exports.submitApplication = async (req, res) => {
       action: 'Nộp hồ sơ',
       note: 'Công dân nộp hồ sơ trực tuyến'
     });
+
+    if (hasPayment) {
+      await Payment.create({
+        receiptCode: paymentCode,
+        applicationId: app.id,
+        userId: req.user.id,
+        feeType: app.service?.name || 'Lệ phí hồ sơ',
+        amount: feeTotal,
+        paymentMethod: 'card',
+        status: 'pending',
+      });
+    }
 
     try {
       await emailService.sendApplicationConfirm(app.citizen.email, app.applicationCode);
@@ -148,6 +172,7 @@ exports.submitApplication = async (req, res) => {
       // Payment info
       hasPayment,
       paymentCode,
+      paymentDeadline,
       unitFee,
       copies: validCopies,
       feeTotal,

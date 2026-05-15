@@ -14,10 +14,14 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowed = ['image/jpeg', 'image/png', 'application/pdf'];
+  const allowed = [
+    'image/jpeg', 'image/png', 'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
   allowed.includes(file.mimetype)
     ? cb(null, true)
-    : cb(new Error('Chỉ chấp nhận file PDF, JPG, PNG'), false);
+    : cb(new Error('Chỉ chấp nhận file PDF, JPG, PNG, DOC, DOCX'), false);
 };
 
 module.exports = multer({

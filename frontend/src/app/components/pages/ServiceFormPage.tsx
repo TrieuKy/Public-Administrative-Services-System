@@ -39,7 +39,9 @@ interface ServiceObj {
   level: string;
   fee: string;
   currentFee?: number; // số thực tế từ database
-  requiredDocs: string[];
+  procedures?: string;
+  workflow?: string;
+  requiredDocs: any[];
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -368,8 +370,9 @@ export function ServiceFormPage() {
   const requiredDocs = service?.requiredDocs || [];
 
   // Map requiredDocs strings → docCategory codes cho AI
-  const mapDocToCategory = (doc: string): string => {
-    const l = doc.toLowerCase();
+  const mapDocToCategory = (doc: any): string => {
+    const docStr = typeof doc === 'string' ? doc : (doc?.docName || doc?.name || String(doc || ''));
+    const l = docStr.toLowerCase();
     if (l.includes('ccđ') || l.includes('căn cước') || l.includes('cmđ') || l.includes('chứng minh')) return 'cccd';
     if (l.includes('hộ khẩu') || l.includes('hộ tịch')) return 'ho_khau';
     if (l.includes('khai sinh')) return 'giay_khai_sinh';
@@ -491,21 +494,61 @@ export function ServiceFormPage() {
               </h3>
               <ul className="space-y-2 text-sm text-blue-800 mt-3">
                 {requiredDocs.map((doc, i) => {
-                  let docDisplay = doc;
-                  const l = doc.toLowerCase();
+                  const docStr = typeof doc === 'string' ? doc : String(doc?.docName || doc?.name || doc || '');
+                  let docDisplay = docStr;
+                  const l = String(docStr).toLowerCase();
                   if (l.includes('ccđ') || l.includes('căn cước') || l.includes('cmđ') || l.includes('chứng minh')) {
                     if (!l.includes('2 mặt') && !l.includes('hai mặt')) {
-                      docDisplay = `${doc} (Bắt buộc 2 mặt)`;
+                      docDisplay = `${docStr} (Bắt buộc 2 mặt)`;
                     }
                   }
+                  const docObj = typeof doc === 'object' ? doc : null;
+                  const templateUrl = docObj?.templateUrl;
+
                   return (
-                    <li key={i} className="flex items-center gap-2">
-                      <span className="text-blue-600 flex-shrink-0">•</span>
-                      <span className="flex-1 font-medium">{docDisplay}</span>
+                    <li key={i} className="flex items-center justify-between gap-4 py-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-600 flex-shrink-0">•</span>
+                        <span className="flex-1 font-medium">{docDisplay}</span>
+                      </div>
+                      {templateUrl && (
+                        <a 
+                          href={templateUrl}
+                          download
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md transition whitespace-nowrap"
+                        >
+                          <FileText size={14} />
+                          Tải biểu mẫu
+                        </a>
+                      )}
                     </li>
                   );
                 })}
               </ul>
+            </div>
+          )}
+
+          {service?.procedures && (
+            <div className="mb-5 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <h3 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                <LayersIcon size={18} /> Trình tự thực hiện:
+              </h3>
+              <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                {service.procedures}
+              </div>
+            </div>
+          )}
+
+          {service?.workflow && (
+            <div className="mb-5 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <h3 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                <RefreshCw size={18} /> Quy trình xử lý (Nội bộ):
+              </h3>
+              <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                {service.workflow}
+              </div>
             </div>
           )}
 
@@ -1063,6 +1106,12 @@ export function ServiceFormPage() {
                 <li>Nhập <strong>Mã thanh toán</strong> ở trên vào ô tra cứu</li>
                 <li>Chọn phương thức và hoàn tất thanh toán</li>
               </ol>
+              {paymentResult.paymentDeadline && (
+                <div className="mt-3 p-2 bg-red-50 text-red-700 border border-red-200 rounded text-center">
+                  <p className="font-bold uppercase">Hạn thanh toán</p>
+                  <p className="text-sm">Trước {new Date(paymentResult.paymentDeadline).toLocaleTimeString('vi-VN')} ngày {new Date(paymentResult.paymentDeadline).toLocaleDateString('vi-VN')}</p>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3">
