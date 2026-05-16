@@ -48,8 +48,8 @@ export function ApplicationDetailModal({ isOpen, onClose, application }: Applica
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="bg-gray-100 border-b border-gray-300 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -129,7 +129,7 @@ export function ApplicationDetailModal({ isOpen, onClose, application }: Applica
           </div>
 
           {/* History Section */}
-          <div>
+          <div className="print-section">
             <div className="flex items-center gap-2 text-blue-800 font-bold text-base mb-3 pb-2 border-b-2 border-blue-200">
               <Clock size={20} />
               <h3>LỊCH SỬ LUÂN CHUYỂN HỒ SƠ</h3>
@@ -180,6 +180,22 @@ export function ApplicationDetailModal({ isOpen, onClose, application }: Applica
               </table>
             </div>
           </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end gap-3 rounded-b-lg">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-100 font-medium transition"
+          >
+            Đóng
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="px-6 py-2 bg-red-700 text-white rounded hover:bg-red-800 font-medium shadow-sm transition flex items-center gap-2"
+          >
+            <FileText size={18} /> In phiếu tra cứu
+          </button>
         </div>
       </div>
     </div>

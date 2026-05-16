@@ -12,6 +12,7 @@ router.patch('/applications/:id/approve',         ctrl.approveApplication);
 router.patch('/applications/:id/reject',          ctrl.rejectApplication);
 router.patch('/applications/:id/request-supplement', ctrl.requestSupplement);
 router.post('/applications/:id/notes',            ctrl.addNote);
+router.get('/applications/:id/print',             ctrl.printApplication);
 
 router.get('/reviews',                            ctrl.getReviews);
 

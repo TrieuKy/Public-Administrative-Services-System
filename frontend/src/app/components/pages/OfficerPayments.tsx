@@ -149,15 +149,36 @@ export function OfficerPayments() {
       {activeTab === 'all' && (
         <Card className="p-0 shadow-sm border-gray-200 overflow-hidden">
           {/* Filter bar */}
-          <div className="p-4 bg-gray-50 border-b flex items-center gap-3">
-            <label className="text-sm font-medium text-gray-600">Trạng thái:</label>
-            <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPayPage(1); }}
-              className="border border-gray-300 rounded-lg text-sm px-3 py-1.5 bg-white outline-none focus:ring-2 focus:ring-red-400">
-              <option value="">Tất cả</option>
-              <option value="success">Thành công</option>
-              <option value="pending">Chờ xử lý</option>
-              <option value="failed">Thất bại</option>
-            </select>
+          <div className="p-4 bg-gray-50 border-b flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <label className="text-sm font-medium text-gray-600">Tìm kiếm:</label>
+              <input 
+                type="text" 
+                placeholder="Mã hồ sơ / Mã biên lai..."
+                className="border border-gray-300 rounded-lg text-sm px-3 py-1.5 bg-white outline-none focus:ring-2 focus:ring-red-400 flex-1 md:w-64"
+                onChange={(e) => {
+                  const val = e.target.value.toLowerCase();
+                  // Simple client side filter for now
+                  if (!val) fetchPayments(1);
+                  else {
+                    setPayments(payments.filter(p => 
+                      p.receiptCode?.toLowerCase().includes(val) || 
+                      p.application?.applicationCode?.toLowerCase().includes(val)
+                    ));
+                  }
+                }}
+              />
+            </div>
+            <div className="flex items-center gap-3 mt-2 md:mt-0">
+              <label className="text-sm font-medium text-gray-600">Trạng thái:</label>
+              <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPayPage(1); }}
+                className="border border-gray-300 rounded-lg text-sm px-3 py-1.5 bg-white outline-none focus:ring-2 focus:ring-red-400">
+                <option value="">Tất cả</option>
+                <option value="success">Thành công</option>
+                <option value="pending">Chờ xử lý</option>
+                <option value="failed">Thất bại</option>
+              </select>
+            </div>
           </div>
 
           <div className="overflow-x-auto">

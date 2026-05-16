@@ -299,8 +299,14 @@ exports.searchByCode = async (req, res) => {
     const { code } = req.query;
     if (!code) return error(res, 'Vui lòng cung cấp mã hồ sơ', 400);
 
+    const { Op } = require('sequelize');
     const app = await Application.findOne({
-      where: { applicationCode: code },
+      where: {
+        [Op.or]: [
+          { applicationCode: code },
+          { paymentCode: code }
+        ]
+      },
       include: [
         { model: Service, as: 'service', attributes: ['name'] },
         { model: User, as: 'officer', attributes: ['fullName'] }

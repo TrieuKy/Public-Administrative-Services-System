@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MessageSquare, Clock, CheckCircle, XCircle, RefreshCw, Filter, Eye, X } from 'lucide-react';
+import { MessageSquare, Clock, CheckCircle, XCircle, RefreshCw, Filter, Eye, X, Sparkles } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import axiosInstance from '../../../utils/axiosInstance';
@@ -25,6 +25,10 @@ export function OfficerFeedbacks() {
   const [filterStatus, setFilterStatus] = useState('');
   const [selected, setSelected] = useState<any | null>(null);
   const [updating, setUpdating] = useState(false);
+
+  // AI Summary State
+  const [aiSummary, setAiSummary] = useState<string>('');
+  const [aiLoading, setAiLoading] = useState(false);
 
   const fetch = async () => {
     setLoading(true);
@@ -58,6 +62,21 @@ export function OfficerFeedbacks() {
     }
   };
 
+  const fetchAiSummary = async () => {
+    setAiLoading(true);
+    try {
+      const res = await axiosInstance.get('/ai/summarize-feedbacks');
+      if (res.data.success) {
+        setAiSummary(res.data.data.summary);
+        toast.success('Đã tải báo cáo tổng hợp từ AI');
+      }
+    } catch (err: any) {
+      toast.error('Không thể lấy báo cáo AI: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const stats = {
     total: feedbacks.length,
     pending: feedbacks.filter(f => f.status === 'pending').length,
@@ -72,10 +91,32 @@ export function OfficerFeedbacks() {
           <h2 className="text-2xl font-bold text-gray-900">Phản ánh kiến nghị</h2>
           <p className="text-sm text-gray-500">Quản lý và xử lý các phản ánh từ công dân</p>
         </div>
-        <Button variant="outline" onClick={fetch} className="border-gray-300 bg-white shadow-sm text-gray-700">
-          <RefreshCw size={16} className="mr-2" /> Làm mới
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={fetchAiSummary} disabled={aiLoading} className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700">
+            {aiLoading ? <RefreshCw size={16} className="mr-2 animate-spin" /> : <Sparkles size={16} className="mr-2" />}
+            {aiLoading ? 'Đang tổng hợp...' : 'AI Tổng hợp phản ánh'}
+          </Button>
+          <Button variant="outline" onClick={fetch} className="border-gray-300 bg-white shadow-sm text-gray-700">
+            <RefreshCw size={16} className="mr-2" /> Làm mới
+          </Button>
+        </div>
       </div>
+
+      {/* AI Summary Banner */}
+      {aiSummary && (
+        <Card className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-indigo-900 flex items-center gap-2">
+              <Sparkles className="text-indigo-600" /> Báo cáo tổng hợp từ AI
+            </h3>
+            <button onClick={() => setAiSummary('')} className="text-gray-400 hover:text-gray-700"><X size={20} /></button>
+          </div>
+          <div 
+            className="prose prose-sm prose-indigo max-w-none text-gray-700" 
+            dangerouslySetInnerHTML={{ __html: aiSummary }} 
+          />
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">

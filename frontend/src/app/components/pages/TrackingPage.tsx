@@ -267,7 +267,7 @@ export function TrackingPage() {
               >
                 Xem chi tiết đầy đủ
               </Button>
-              <Button variant="outline" className="flex-1 border-red-700 text-red-700 hover:bg-red-50">
+              <Button variant="outline" className="flex-1 border-red-700 text-red-700 hover:bg-red-50" onClick={() => window.print()}>
                 In phiếu tra cứu
               </Button>
               {searchResult.status === 'NEED_MORE' && (

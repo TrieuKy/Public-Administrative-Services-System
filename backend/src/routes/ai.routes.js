@@ -531,4 +531,47 @@ router.post('/ocr-cccd-dual', auth, upload.fields([{ name: 'front', maxCount: 1 
   }
 });
 
+/**
+ * GET /api/v1/ai/summarize-feedbacks
+ * AI tổng hợp các phản ánh kiến nghị để cán bộ nắm bắt nhanh
+ */
+router.get('/summarize-feedbacks', auth, async (req, res) => {
+  try {
+    const { Comment } = require('../models');
+    const feedbacks = await Comment.findAll({
+      where: { type: 'feedback' },
+      order: [['createdAt', 'DESC']],
+      limit: 50
+    });
+    
+    if (feedbacks.length === 0) {
+      return success(res, { summary: '<p>Chưa có phản ánh nào để tổng hợp.</p>' });
+    }
+
+    const textToAnalyze = feedbacks.map((f, i) => `[${f.topic}] Tiêu đề: ${f.title}. Nội dung: ${f.content}`).join('\n\n');
+    
+    const prompt = `Bạn là trợ lý AI cho bộ phận tiếp nhận phản ánh kiến nghị của cơ quan nhà nước.
+Hãy đọc danh sách ${feedbacks.length} phản ánh gần đây của người dân và TỔNG HỢP lại thành một báo cáo ngắn gọn.
+Tập trung vào:
+1. Những vấn đề bức xúc / bị phàn nàn nhiều nhất.
+2. Những khó khăn chung mà người dân đang gặp phải với hệ thống.
+3. Đề xuất nhanh hành động khắc phục.
+
+Danh sách phản ánh:
+${textToAnalyze}
+
+Yêu cầu định dạng đầu ra:
+Trả về nội dung bằng HTML thuần (chỉ dùng các thẻ <ul>, <li>, <strong>, <p>, <h3>) để tôi render trực tiếp lên web.
+KHÔNG dùng markdown, KHÔNG bọc trong \`\`\`html.`;
+
+    const summary = await aiService.chat(prompt);
+    const cleanSummary = summary.replace(/```html/g, '').replace(/```/g, '').trim();
+    
+    return success(res, { summary: cleanSummary });
+  } catch (err) {
+    console.error('[AI Summarize Feedbacks]', err.message);
+    return error(res, 'Không thể tổng hợp phản ánh: ' + err.message, 500);
+  }
+});
+
 module.exports = router;

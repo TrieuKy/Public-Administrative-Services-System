@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, CheckCircle, CreditCard, FileText, Scale, Home, FileSignature, Landmark, Calculator, Printer, Download, X, History, Clock } from 'lucide-react';
+import { ArrowLeft, CheckCircle, CreditCard, Search, Download, Printer, X, History, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -15,26 +15,16 @@ function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'medium' });
 }
 
-const FEE_MAP: Record<string, number> = {
-  'Lệ phí chứng thực bản sao, chữ ký': 20000,
-  'Lệ phí đăng ký khai sinh, kết hôn, khai tử': 0,
-  'Phí cấp bản sao trích lục hộ tịch': 5000,
-  'Lệ phí địa chính': 15000,
-  'Phí xây dựng - vệ sinh môi trường': 30000,
-  'Phí, lệ phí quản lý xã': 10000,
-  'Các khoản thù lao thu hộ': 50000,
-};
-
 export function PaymentPage() {
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
-  const [selectedService, setSelectedService] = useState('');
   const [searchCode, setSearchCode] = useState('');
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
   const [paymentId, setPaymentId] = useState<string>('');
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const [paymentFeeType, setPaymentFeeType] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'pay' | 'history'>('pay');
   const [history, setHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -52,36 +42,44 @@ export function PaymentPage() {
     finally { setHistoryLoading(false); }
   };
 
-  const handleOpenPayment = (serviceName: string) => {
-    if (!user) { toast.warning('Vui lòng đăng nhập để thanh toán'); return; }
-    setSelectedService(serviceName);
-    setSearchCode('');
-    setStep(1);
-    setReceiptData(null);
-    setPaymentId('');
-    setShowModal(true);
-  };
-
-  // Bước 1 → 2: Kiểm tra mã hồ sơ (nếu có) rồi tạo giao dịch pending
+  // Bước 1 → 2: Tìm hồ sơ và tạo giao dịch thanh toán
   const handleSearch = async () => {
     if (!searchCode.trim()) { toast.warning('Vui lòng nhập mã hồ sơ'); return; }
     setIsLoading(true);
     try {
-      const fee = FEE_MAP[selectedService] ?? 20000;
-      const res = await axiosInstance.post('/payments', {
-        feeType: selectedService,
+      // Đầu tiên, tra cứu thông tin hồ sơ
+      const appRes = await axiosInstance.get(`/applications/search?code=${searchCode.trim()}`);
+      const app = appRes.data.data;
+      
+      if (app.paymentStatus === 'PAID') {
+        toast.info('Hồ sơ này đã được thanh toán');
+        setIsLoading(false);
+        return;
+      }
+      
+      if (app.paymentStatus === 'FREE') {
+        toast.info('Hồ sơ này được miễn phí, không cần thanh toán');
+        setIsLoading(false);
+        return;
+      }
+
+      const fee = app.feeTotal || 0;
+      const feeType = app.service?.name || 'Lệ phí hồ sơ';
+      setPaymentFeeType(feeType);
+
+      // Tạo (hoặc lấy) giao dịch thanh toán
+      const payRes = await axiosInstance.post('/payments', {
+        feeType: feeType,
         amount: fee,
         paymentMethod: 'card',
         applicationCode: searchCode.trim(),
       });
-      if (res.data.success) {
-        setPaymentId(res.data.data.paymentId);
-        if (res.data.data.amount !== undefined) {
-          setPaymentAmount(res.data.data.amount);
-        } else {
-          setPaymentAmount(fee);
-        }
+
+      if (payRes.data.success) {
+        setPaymentId(payRes.data.data.paymentId);
+        setPaymentAmount(payRes.data.data.amount !== undefined ? payRes.data.data.amount : fee);
         setStep(2);
+        setShowModal(true);
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Không tìm thấy hồ sơ. Vui lòng kiểm tra lại mã.');
@@ -103,40 +101,6 @@ export function PaymentPage() {
       toast.error(err.response?.data?.message || 'Thanh toán thất bại. Vui lòng thử lại.');
     } finally { setIsLoading(false); }
   };
-
-  const fee = FEE_MAP[selectedService] ?? 20000;
-
-  const serviceGroups = [
-    {
-      title: 'Tư pháp - Hộ tịch', color: 'blue',
-      items: [
-        { icon: FileSignature, label: 'Lệ phí chứng thực bản sao từ bản chính, chứng thực chữ ký', key: 'Lệ phí chứng thực bản sao, chữ ký' },
-        { icon: Scale, label: 'Đăng ký khai sinh, kết hôn, khai tử (thuộc thẩm quyền xã)', key: 'Lệ phí đăng ký khai sinh, kết hôn, khai tử' },
-        { icon: FileText, label: 'Phí cấp bản sao trích lục hộ tịch', key: 'Phí cấp bản sao trích lục hộ tịch' },
-      ]
-    },
-    {
-      title: 'Đất đai - Xây dựng', color: 'emerald',
-      items: [
-        { icon: Landmark, label: 'Lệ phí địa chính (cấp bản sao giấy tờ đất đai, trích đo...)', key: 'Lệ phí địa chính' },
-        { icon: Home, label: 'Phí xây dựng hoặc phí vệ sinh môi trường địa phương', key: 'Phí xây dựng - vệ sinh môi trường' },
-      ]
-    },
-    {
-      title: 'Các khoản thu khác', color: 'red',
-      items: [
-        { icon: FileText, label: 'Phí, lệ phí theo quy định liên quan đến công tác quản lý xã', key: 'Phí, lệ phí quản lý xã' },
-        { icon: Calculator, label: 'Nộp các khoản thù lao thu hộ (nếu có)', key: 'Các khoản thù lao thu hộ' },
-      ]
-    },
-  ];
-
-  const colorMap: Record<string, string> = {
-    blue: 'border-blue-700 text-blue-900 hover:border-blue-400 hover:bg-blue-50',
-    emerald: 'border-emerald-600 text-emerald-800 hover:border-emerald-400 hover:bg-emerald-50',
-    red: 'border-red-700 text-red-900 hover:border-red-400 hover:bg-red-50',
-  };
-  const iconColorMap: Record<string, string> = { blue: 'text-blue-500', emerald: 'text-emerald-500', red: 'text-red-500' };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -166,24 +130,28 @@ export function PaymentPage() {
 
         {/* Thanh toán tab */}
         {activeTab === 'pay' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {serviceGroups.map(group => (
-              <div key={group.title} className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
-                <div className={`h-3 bg-${group.color}-700`} />
-                <div className="p-6">
-                  <h2 className={`text-xl font-bold text-center uppercase tracking-widest mb-6 text-${group.color}-900`}>{group.title}</h2>
-                  <div className="space-y-4">
-                    {group.items.map(item => (
-                      <button key={item.key} onClick={() => handleOpenPayment(item.key)}
-                        className={`w-full flex items-start gap-4 p-5 border border-gray-200 ${colorMap[group.color]} rounded-xl shadow-sm hover:shadow-md transition-all duration-200 text-left group`}>
-                        <item.icon className={`${iconColorMap[group.color]} mt-0.5 group-hover:scale-110 transition-transform flex-shrink-0`} size={24} />
-                        <span className="text-gray-700 font-medium">{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
+          <div className="max-w-xl mx-auto">
+            <Card className="p-8 shadow-lg border-t-4 border-t-[#cc6633]">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4 text-[#cc6633]">
+                  <Search size={32} />
                 </div>
+                <h2 className="text-2xl font-bold text-gray-800">Tra cứu thanh toán</h2>
+                <p className="text-gray-500 mt-2">Nhập mã hồ sơ để tra cứu và nộp phí/lệ phí</p>
               </div>
-            ))}
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Mã hồ sơ / Mã thanh toán</label>
+                  <input type="text" value={searchCode} onChange={e => setSearchCode(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                    placeholder="VD: HS-2026-000001" className="w-full border-2 border-gray-200 rounded-xl px-5 py-4 text-lg focus:outline-none focus:border-[#cc6633] focus:ring-4 focus:ring-orange-50 transition" />
+                </div>
+                <Button onClick={handleSearch} disabled={isLoading} className="w-full bg-[#cc6633] hover:bg-[#a64e22] text-white py-6 text-lg rounded-xl">
+                  {isLoading ? <span className="flex items-center gap-2 justify-center"><span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Đang tra cứu...</span> : 'Tra Cứu Thông Tin'}
+                </Button>
+              </div>
+            </Card>
           </div>
         )}
 
@@ -249,44 +217,26 @@ export function PaymentPage() {
             <div className="p-6">
               {/* Step indicator */}
               <div className="flex items-center gap-2 mb-6">
-                {[1,2,3].map((s, i) => (
+                {[2,3].map((s, i) => (
                   <div key={s} className="flex items-center gap-2 flex-1">
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${step >= s ? 'bg-[#cc6633] text-white' : 'bg-gray-200 text-gray-500'}`}>
-                      {step > s ? '✓' : s}
+                      {step > s ? '✓' : s - 1}
                     </div>
                     <span className={`text-xs hidden sm:block ${step >= s ? 'text-[#cc6633] font-medium' : 'text-gray-400'}`}>
-                      {s === 1 ? 'Nhập Mã' : s === 2 ? 'Xác nhận' : 'Biên lai'}
+                      {s === 2 ? 'Xác nhận' : 'Biên lai'}
                     </span>
-                    {i < 2 && <div className={`h-px flex-1 ${step > s ? 'bg-[#cc6633]' : 'bg-gray-200'}`} />}
+                    {i < 1 && <div className={`h-px flex-1 ${step > s ? 'bg-[#cc6633]' : 'bg-gray-200'}`} />}
                   </div>
                 ))}
               </div>
 
-              <div className="mb-5 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg text-sm text-[#cc6633] font-medium">{selectedService}</div>
-
-              {/* Step 1 */}
-              {step === 1 && (
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600">Nhập <strong>Mã hồ sơ</strong> hoặc <strong>Mã thanh toán</strong> để tra cứu thông tin cần nộp.</p>
-                  <div>
-                    <label className="block text-xs uppercase text-gray-500 font-bold mb-1">Mã hồ sơ / Mã thanh toán</label>
-                    <input type="text" value={searchCode} onChange={e => setSearchCode(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                      placeholder="Ví dụ: HS2026VN..." className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:border-[#cc6633] transition" />
-                  </div>
-                  <Button onClick={handleSearch} disabled={isLoading} className="w-full bg-[#cc6633] hover:bg-[#a64e22] text-white py-6 text-lg mt-4">
-                    {isLoading ? <span className="flex items-center gap-2 justify-center"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Đang tra cứu...</span> : 'Tra Cứu Giao Dịch'}
-                  </Button>
-                </div>
-              )}
-
-              {/* Step 2 */}
+              {/* Step 2: Xác nhận */}
               {step === 2 && (
                 <div className="space-y-5">
                   <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-2 text-sm">
                     <div className="flex justify-between"><span className="text-gray-600">Người nộp:</span><span className="font-bold text-gray-900">{user?.fullName || 'Công dân'}</span></div>
                     <div className="flex justify-between"><span className="text-gray-600">Mã hồ sơ:</span><span className="font-bold text-gray-900">{searchCode.trim().toUpperCase()}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-600">Loại phí:</span><span className="font-medium text-gray-800">{selectedService}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-600">Loại phí:</span><span className="font-medium text-gray-800 text-right ml-4">{paymentFeeType}</span></div>
                   </div>
                   <div className="text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg p-6">
                     <p className="text-gray-500 text-sm mb-1">Tổng tiền thanh toán</p>
@@ -302,7 +252,7 @@ export function PaymentPage() {
                 </div>
               )}
 
-              {/* Step 3 — Biên lai */}
+              {/* Step 3: Biên lai */}
               {step === 3 && receiptData && (
                 <div>
                   <div className="text-center mb-6">
@@ -363,9 +313,15 @@ export function PaymentPage() {
                       <Download size={16} /> Tải biên lai
                     </Button>
                   </div>
-                  <Button onClick={() => { setShowModal(false); fetchHistory(); setActiveTab('history'); }} className="w-full mt-3 bg-[#cc6633] hover:bg-[#a64e22] text-white">
-                    Xem lịch sử giao dịch
-                  </Button>
+                  
+                  <div className="flex gap-3 mt-3">
+                    <Button onClick={() => { setShowModal(false); fetchHistory(); setActiveTab('history'); }} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800">
+                      Lịch sử giao dịch
+                    </Button>
+                    <Button onClick={() => setShowModal(false)} className="flex-1 bg-[#cc6633] hover:bg-[#a64e22] text-white">
+                      Đóng
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

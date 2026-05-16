@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, Eye, User, Calendar, CheckCircle, XCircle, AlertCircle, FileText, Download, RefreshCw, X, Sparkles } from 'lucide-react';
+import { Search, Filter, Eye, User, Calendar, CheckCircle, XCircle, AlertCircle, FileText, Download, RefreshCw, X, Sparkles, Printer } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import axiosInstance from '../../../utils/axiosInstance';
@@ -145,6 +145,61 @@ export function OfficerApplications() {
     }
   };
 
+  const handlePrint = async (appId: number, applicationCode: string) => {
+    toast.info('Đang tạo và tải file PDF/DOCX...');
+    try {
+      const res = await axiosInstance.get(`/officer/applications/${appId}/print`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Giay_Xac_Nhan_${applicationCode}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err) {
+      toast.error('Lỗi khi in đơn. Vui lòng thử lại.');
+    }
+  };
+
+  const handleViewDocument = async (doc: any) => {
+    const newWindow = window.open('', '_blank');
+    if (newWindow) newWindow.document.write('Đang tải tài liệu...');
+    try {
+      const filename = doc.fileUrl?.split('/').pop();
+      if (!filename) throw new Error('File name missing');
+      
+      const res = await axiosInstance.get(`/files/${filename}`, { responseType: 'blob' });
+      const mimeType = res.headers['content-type'] || res.data.type || 'application/octet-stream';
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: mimeType }));
+      if (newWindow) {
+        newWindow.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+    } catch (err) {
+      if (newWindow) newWindow.close();
+      toast.error('Không thể mở tài liệu. Có lỗi hoặc tài liệu không tồn tại.');
+    }
+  };
+
+  const handleDownloadDocument = async (doc: any) => {
+    try {
+      const filename = doc.fileUrl?.split('/').pop();
+      if (!filename) throw new Error('File name missing');
+      
+      const res = await axiosInstance.get(`/files/${filename}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', doc.fileName || filename);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err) {
+      toast.error('Không thể tải tài liệu. Vui lòng thử lại.');
+    }
+  };
+
   const handleActionConfirm = async (text: string) => {
     if (!actionModal) return;
     setActionLoading(true);
@@ -178,7 +233,7 @@ export function OfficerApplications() {
           <Button variant="outline" className="border-gray-300 bg-white shadow-sm text-gray-700">
             <Download size={16} className="mr-2" /> Xuất Excel
           </Button>
-          <Button variant="outline" onClick={fetchApplications} className="border-gray-300 bg-white shadow-sm text-gray-700">
+          <Button variant="outline" onClick={() => fetchApplications()} className="border-gray-300 bg-white shadow-sm text-gray-700">
             <RefreshCw size={16} className="mr-2" /> Làm mới
           </Button>
         </div>
@@ -302,8 +357,8 @@ export function OfficerApplications() {
                   </td>
                   <td className="p-4">{renderStatusTag(app.status)}</td>
                   <td className="p-4">
-                    <div className="flex justify-center">
-                      <button onClick={async () => {
+                    <div className="flex justify-center gap-2">
+                      <button title="Xem chi tiết" onClick={async () => {
                         try {
                           const req = await axiosInstance.get(`/officer/applications/${app.id}`);
                           setSelectedApplication(req.data.data);
@@ -311,6 +366,11 @@ export function OfficerApplications() {
                       }} className="w-8 h-8 rounded-full flex items-center justify-center border border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition">
                         <Eye size={16} />
                       </button>
+                      {app.status === 'COMPLETED' && (
+                        <button title="Tải PDF" onClick={() => handlePrint(app.id, app.applicationCode)} className="w-8 h-8 rounded-full flex items-center justify-center border border-blue-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition">
+                          <Download size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -418,8 +478,8 @@ export function OfficerApplications() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <a href={((import.meta as any).env.VITE_API_URL || 'http://localhost:3001/api/v1')?.replace('/api/v1', '') + doc.fileUrl} target="_blank" rel="noreferrer" className="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition"><Eye size={18} /></a>
-                        <a href={((import.meta as any).env.VITE_API_URL || 'http://localhost:3001/api/v1')?.replace('/api/v1', '') + doc.fileUrl} download={doc.fileName} className="p-1.5 bg-green-50 text-green-600 rounded hover:bg-green-100 transition"><Download size={18} /></a>
+                        <button onClick={() => handleViewDocument(doc)} title="Xem tài liệu" className="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition"><Eye size={18} /></button>
+                        <button onClick={() => handleDownloadDocument(doc)} title="Tải tài liệu" className="p-1.5 bg-green-50 text-green-600 rounded hover:bg-green-100 transition"><Download size={18} /></button>
                       </div>
                     </div>
                   ))}
@@ -578,21 +638,32 @@ export function OfficerApplications() {
               </div>
 
               {/* Action Buttons */}
-              {['PENDING', 'PROCESSING'].includes(selectedApplication.status) && (
+              {['PENDING', 'PROCESSING', 'COMPLETED'].includes(selectedApplication.status) && (
                 <div className="flex gap-3 justify-end pt-4 border-t border-gray-100">
-                  <Button variant="outline" onClick={() => setActionModal({ type: 'supplement' })}
-                    className="border-orange-400 text-orange-600 hover:bg-orange-50 font-semibold">
-                    <AlertCircle size={16} className="mr-2" /> Yêu cầu bổ sung
-                  </Button>
-                  <Button variant="outline" onClick={() => setActionModal({ type: 'reject' })}
-                    className="border-red-400 text-red-600 hover:bg-red-50 font-semibold">
-                    <XCircle size={16} className="mr-2" /> Từ chối
-                  </Button>
-                  <Button onClick={handleApprove} disabled={approveLoading}
-                    className="bg-green-600 hover:bg-green-700 text-white font-semibold">
-                    <CheckCircle size={16} className="mr-2" />
-                    {approveLoading ? 'Đang duyệt...' : 'Duyệt hồ sơ'}
-                  </Button>
+                  {['PENDING', 'PROCESSING'].includes(selectedApplication.status) && (
+                    <>
+                      <Button variant="outline" onClick={() => setActionModal({ type: 'supplement' })}
+                        className="border-orange-400 text-orange-600 hover:bg-orange-50 font-semibold">
+                        <AlertCircle size={16} className="mr-2" /> Yêu cầu bổ sung
+                      </Button>
+                      <Button variant="outline" onClick={() => setActionModal({ type: 'reject' })}
+                        className="border-red-400 text-red-600 hover:bg-red-50 font-semibold">
+                        <XCircle size={16} className="mr-2" /> Từ chối
+                      </Button>
+                      <Button onClick={handleApprove} disabled={approveLoading}
+                        className="bg-green-600 hover:bg-green-700 text-white font-semibold">
+                        <CheckCircle size={16} className="mr-2" />
+                        {approveLoading ? 'Đang duyệt...' : 'Duyệt hồ sơ'}
+                      </Button>
+                    </>
+                  )}
+                  {selectedApplication.status === 'COMPLETED' && (
+                    <Button onClick={() => handlePrint(selectedApplication.id, selectedApplication.applicationCode)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+                      <Printer size={16} className="mr-2" />
+                      In đơn PDF
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

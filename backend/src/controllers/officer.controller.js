@@ -22,7 +22,7 @@ exports.listApplications = async (req, res) => {
         { model: User,    as: 'citizen',  attributes: ['fullName', 'email', 'cccd'] },
         { model: Service, as: 'service',  attributes: ['name', 'category', 'currentFee'] }
       ],
-      order: [['submittedAt', 'ASC']],
+      order: [['createdAt', 'DESC']],
       limit: +limit, offset: (+page - 1) * +limit
     });
     return success(res, { applications: rows, total: count, page: +page });
@@ -188,4 +188,129 @@ exports.getReviews = async (req, res) => {
       stats: { totalReviews, averageRating, ratingCounts }
     });
   } catch (err) { return error(res, err.message, 500); }
+};
+
+// UC: In hồ sơ sang PDF
+exports.printApplication = async (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const pdf = require('html-pdf');
+    
+    const app = await Application.findByPk(req.params.id, {
+      include: [{ model: User, as: 'citizen' }]
+    });
+    if (!app) return error(res, 'Hồ sơ không tồn tại', 404);
+
+    const formData = app.formData || {};
+    const d = new Date();
+    
+    const applicationCode = app.applicationCode || '';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const officerName = app.officer?.fullName || '............................';
+    const fullName = formData.fullName || formData.HOTEN || app.citizen?.fullName || '';
+    const dob = formData.dob || formData.NGAYSINH || '';
+    const idNumber = formData.idNumber || formData.CCCD || app.citizen?.cccd || '';
+    const address = formData.address || formData.NOITHUONGTRU || '';
+    const issueDate = formData.issueDate || formData.NGAYCAP || '';
+    const issuePlace = formData.issuePlace || formData.NOICAP || 'Cục CSQLHC về TTXH';
+    const gender = formData.gender || formData.GIOITINH || '';
+    const nationality = formData.nationality || formData.QUOCTICH || 'Việt Nam';
+    const ethnicity = formData.ethnicity || formData.DANTOC || 'Kinh';
+
+    const htmlContent = `
+    <html>
+    <head>
+    <meta charset='utf-8'>
+    <style>
+      body { font-family: 'Times New Roman', serif; font-size: 14pt; line-height: 1.5; margin: 40px; }
+      .header-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+      .header-table td { text-align: center; vertical-align: top; border: none; padding: 0; }
+      .bold { font-weight: bold; }
+      .title { text-align: center; font-weight: bold; font-size: 16pt; margin-top: 10px; }
+      .subtitle { text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 20px; text-transform: uppercase; }
+      .section-title { text-align: center; font-weight: bold; font-size: 14pt; margin: 15px 0; }
+      .content { text-align: justify; margin-bottom: 10px; }
+      .footer-table { width: 100%; border-collapse: collapse; margin-top: 30px; }
+      .footer-table td { text-align: center; vertical-align: top; border: none; }
+    </style>
+    </head>
+    <body>
+      <table class="header-table">
+        <tr>
+          <td style="width: 40%;">
+            THÀNH PHỐ ĐÀ NẴNG<br>
+            <span class="bold">QUẬN HẢI CHÂU</span><br>
+            <span class="bold" style="text-decoration: underline;">UBND PHƯỜNG BÌNH HIÊN</span><br><br>
+            Số: ${applicationCode}/UBND-XNTTHN
+          </td>
+          <td style="width: 60%;">
+            <span class="bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</span><br>
+            <span class="bold" style="text-decoration: underline;">Độc lập - Tự do - Hạnh phúc</span><br><br>
+            <i style="font-size: 13pt;">Bình Hiên, ngày ${day} tháng ${month} năm ${year}</i>
+          </td>
+        </tr>
+      </table>
+
+      <div class="title">GIẤY XÁC NHẬN TÌNH TRẠNG HÔN NHÂN</div>
+      <div class="subtitle">UBND PHƯỜNG BÌNH HIÊN, QUẬN HẢI CHÂU, THÀNH PHỐ ĐÀ NẴNG</div>
+
+      <div class="content">
+        Xét đề nghị của ông/bà: <b>${officerName}</b>, Công chức tư pháp hộ tịch<br>
+        về việc cấp Giấy xác nhận tình trạng hôn nhân cho <b>${fullName}</b>
+      </div>
+
+      <div class="section-title">XÁC NHẬN:</div>
+
+      <div class="content">
+        Họ, chữ đệm, tên: <span class="bold">${fullName}</span><br>
+        Ngày, tháng, năm sinh: ${dob}<br>
+        <table style="width:100%; border:none; margin: 0; padding: 0;">
+          <tr>
+            <td style="width:33%; padding: 0;">Giới tính: ${gender}</td>
+            <td style="width:33%; padding: 0;">Dân tộc: ${ethnicity}</td>
+            <td style="padding: 0; text-align:right;">Quốc tịch: ${nationality}</td>
+          </tr>
+        </table>
+        Giấy tờ tùy thân: CMND: ${idNumber} do ${issuePlace} cấp ngày ${issueDate}<br>
+        Nơi cư trú: ${address}<br>
+        Trong thời gian cư trú tại: Phường Bình Hiên<br>
+        Từ ngày ..................................................... đến ngày .....................................................<br>
+        Tình trạng hôn nhân: Chưa đăng ký kết hôn với ai.<br>
+        Giấy này có giá trị sử dụng trong thời hạn 6 tháng, kể từ ngày cấp, được sử dụng để: Bổ sung hồ sơ đi nước ngoài.
+      </div>
+
+      <table class="footer-table">
+        <tr>
+          <td style="width: 50%;"></td>
+          <td style="width: 50%;">
+            <span class="bold">NGƯỜI KÝ GIẤY XÁC NHẬN</span><br>
+            <i>(Ký, ghi rõ họ tên, chức vụ và đóng dấu)</i><br><br><br><br><br>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+    `;
+
+    const uploadsDir = path.resolve(__dirname, '../../uploads');
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+
+    const pdfPath = path.resolve(uploadsDir, `temp_${app.id}.pdf`);
+
+    pdf.create(htmlContent, { format: 'A4', orientation: 'portrait' }).toFile(pdfPath, function(err, result) {
+      if (err) {
+        console.error('[html-pdf]', err);
+        return error(res, 'Lỗi khi tạo PDF', 500);
+      }
+      res.download(pdfPath, `Giay_Xac_Nhan_${app.applicationCode}.pdf`, () => {
+        if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+      });
+    });
+  } catch (err) {
+    console.error('[printApplication]', err);
+    return error(res, 'Lỗi in hồ sơ: ' + err.message, 500);
+  }
 };
