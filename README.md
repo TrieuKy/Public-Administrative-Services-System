@@ -14,6 +14,7 @@
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![Gemini AI](https://img.shields.io/badge/Gemini_AI-4285F4?style=for-the-badge&logo=google&logoColor=white)
+![Claude AI](https://img.shields.io/badge/Claude_AI-D97757?style=for-the-badge&logo=anthropic&logoColor=white)
 
 </div>
 
@@ -21,11 +22,11 @@
 
 ## 📖 Giới Thiệu
 
-Hệ thống Web **Full-Stack** số hóa quy trình quản lý hồ sơ hành chính cấp địa phương, tích hợp AI (Gemini Vision) để OCR quét CCCD, phân tích tài liệu và chatbot tư vấn tự động.
+Hệ thống Web **Full-Stack** số hóa quy trình quản lý hồ sơ hành chính cấp địa phương, tích hợp AI tiên tiến (Gemini và Claude) để xử lý OCR quét căn cước công dân (CCCD), phân tích tài liệu tự động và chatbot tư vấn nghiệp vụ cho công dân.
 
 **2 nhóm người dùng:**
-- 🧑 **Công dân:** Nộp hồ sơ, thanh toán lệ phí, tra cứu kết quả
-- 👮 **Cán bộ:** Tiếp nhận, duyệt hồ sơ với hỗ trợ phân tích AI
+- 🧑 **Công dân:** Nộp hồ sơ, thanh toán lệ phí trực tuyến, tra cứu tiến trình và kết quả xử lý hồ sơ.
+- 👮 **Cán bộ:** Tiếp nhận, xét duyệt, trả kết quả với sự hỗ trợ phân tích độ tin cậy tài liệu từ AI.
 
 ---
 
@@ -33,496 +34,191 @@ Hệ thống Web **Full-Stack** số hóa quy trình quản lý hồ sơ hành c
 
 | Tính năng | Mô tả |
 |-----------|-------|
-| 🪪 OCR Quét CCCD | Upload 2 mặt CCCD, AI tự đọc và điền form |
-| 📄 Nộp hồ sơ | Upload giấy tờ, AI kiểm tra độ hợp lệ |
-| 🤖 AI Phân tích | Gemini Vision chấm điểm tin cậy từng tài liệu |
-| 💳 Thanh toán | Mô phỏng thanh toán với biên lai |
-| 🔍 Tra cứu hồ sơ | Theo dõi tiến trình theo mã hồ sơ |
-| 📊 Dashboard cán bộ | Thống kê, duyệt/từ chối/yêu cầu bổ sung |
-| 🤖 Chatbot | Trợ lý ảo hướng dẫn thủ tục hành chính |
-| 📧 Xác thực Email | Gửi link xác thực khi đăng ký |
+| 🪪 OCR Quét CCCD | Upload 2 mặt CCCD, AI (Claude) tự động đọc và điền thông tin form |
+| 📄 Nộp hồ sơ | Upload giấy tờ, hỗ trợ kiểm tra và nhận diện tài liệu tự động |
+| 🤖 AI Phân tích hồ sơ | Phân tích tài liệu, đánh giá độ tin cậy hỗ trợ cán bộ xét duyệt |
+| 💳 Thanh toán lệ phí | Mô phỏng cổng thanh toán trực tuyến, xuất biên lai điện tử |
+| 🔍 Tra cứu hồ sơ | Theo dõi tiến trình xử lý real-time qua mã số hồ sơ |
+| 📊 Dashboard cán bộ | Thống kê số liệu trực quan, duyệt/từ chối/yêu cầu bổ sung hồ sơ |
+| 🤖 Chatbot AI | Trợ lý ảo (Gemini) hỗ trợ giải đáp quy trình thủ tục hành chính |
+| 📧 Gửi thông báo Email | Tự động thông báo xác thực tài khoản và cập nhật trạng thái hồ sơ |
 
 ---
 
-## 🛠️ Công Nghệ
+## 🛠️ Công Nghệ Sử Dụng
 
 | Lớp | Công nghệ |
 |-----|-----------|
-| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, React Router, Axios |
-| **Backend** | Node.js, Express.js 5, Sequelize ORM |
+| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, React Router, Axios, Lucide React, Recharts |
+| **Backend** | Node.js, Express.js 5, Sequelize ORM, Multer, JWT, Bcrypt |
 | **Database** | PostgreSQL |
-| **AI** | Google Gemini 2.5 Flash (OCR + Vision + Chatbot) |
-| **Auth** | JWT (Access Token 1h + Refresh Token 7d) |
-| **Upload** | Multer (local storage) |
+| **AI Services** | Google Gemini (Chatbot), Anthropic Claude (OCR & Vision Phân tích) |
+| **Email Service** | Nodemailer |
 
 ---
 
-## 📁 Cấu Trúc Thư Mục
+## 📁 Cấu Trúc Thư Mục Dự Án
 
 ```
 WebsiteProject/
 ├── .gitignore
-├── hanh_chinh_cong.sql        ← File SQL để import database
-│
+├── hanh_chinh_cong.sql        ← File SQL để tạo và thêm dữ liệu ban đầu vào database
 ├── backend/
-│   ├── .env                   ← Cấu hình backend (TỰ TẠO - xem bên dưới)
-│   ├── server.js              ← Entry point
-│   ├── scripts/
-│   │   ├── seedData.js        ← Tạo dữ liệu mẫu (services, hồ sơ...)
-│   │   ├── seedOfficer.js     ← Tạo tài khoản cán bộ mẫu
-│   │   └── reset.js           ← Reset toàn bộ database
+│   ├── .env.example           ← Mẫu cấu hình môi trường backend (cần sao chép thành .env)
+│   ├── server.js              ← Entry point chính
+│   ├── package.json
+│   ├── scripts/               ← Script hỗ trợ tạo dữ liệu mẫu (seed) hoặc reset
 │   ├── src/
-│   │   ├── config/            ← Kết nối database
-│   │   ├── controllers/       ← Logic xử lý API
-│   │   ├── middlewares/       ← Auth, upload, error handler
-│   │   ├── models/            ← Sequelize models (User, Application...)
-│   │   ├── routes/            ← Khai báo API endpoints
-│   │   ├── services/          ← AI service (Gemini), Email service
+│   │   ├── config/            ← Cấu hình database
+│   │   ├── controllers/       ← Xử lý logic API
+│   │   ├── middlewares/       ← Middleware xác thực (Auth), upload file
+│   │   ├── models/            ← Các mô hình CSDL Sequelize
+│   │   ├── ocr/               ← Dịch vụ OCR cục bộ
+│   │   ├── routes/            ← Định tuyến API
 │   │   └── utils/
-│   └── uploads/               ← File upload của công dân (không up git)
-│
+│   └── uploads/               ← (Sẽ tự tạo) Thư mục chứa file tải lên
 └── frontend/
+    ├── package.json
+    ├── vite.config.ts
     ├── src/
-    │   ├── app/
-    │   │   ├── App.tsx         ← Router chính
-    │   │   └── components/
-    │   │       ├── pages/      ← ProfilePage, OfficerApplications...
-    │   │       └── ui/         ← Button, Card...
-    │   ├── context/            ← AuthContext
-    │   └── utils/
-    │       └── axiosInstance.ts ← HTTP client với JWT
+    │   ├── app/               ← Components, pages, layout chính
+    │   ├── context/           ← Quản lý state toàn cục (Auth)
+    │   └── utils/             ← Cấu hình Axios
     └── public/
-        └── logo.png
 ```
 
 ---
 
 ## ⚙️ Yêu Cầu Hệ Thống
 
-Trước khi cài đặt, hãy chắc chắn máy tính đã có:
+Trước khi tiến hành cài đặt, đảm bảo máy của bạn đã được cài đặt:
 
-| Phần mềm | Phiên bản | Kiểm tra |
-|----------|-----------|----------|
-| **Node.js** | ≥ 18.x | `node --version` |
-| **npm** | ≥ 9.x | `npm --version` |
-| **PostgreSQL** | ≥ 14.x | Kiểm tra trong pgAdmin |
-| **pgAdmin 4** | Bất kỳ | Mở được giao diện web |
+| Môi trường / Phần mềm | Phiên bản | Lệnh kiểm tra |
+|-----------------------|-----------|---------------|
+| **Node.js** | ≥ 18.x | `node -v` |
+| **npm** | ≥ 9.x | `npm -v` |
+| **PostgreSQL** | ≥ 14.x | Xem trong ứng dụng pgAdmin |
 | **Git** | Bất kỳ | `git --version` |
 
-> 💡 **Tải Node.js:** https://nodejs.org (chọn bản LTS)  
-> 💡 **Tải PostgreSQL + pgAdmin:** https://www.postgresql.org/download/
+> 💡 **Node.js:** Tải tại [nodejs.org](https://nodejs.org) (Bản LTS).
+> 💡 **PostgreSQL & pgAdmin:** Tải tại [postgresql.org](https://www.postgresql.org/download/).
 
 ---
 
-## 🚀 Hướng Dẫn Cài Đặt Chi Tiết
+## 🚀 Hướng Dẫn Cài Đặt và Chạy Dự Án (Clone Về Máy)
 
-### BƯỚC 0 — Clone dự án về máy
+### Bước 1: Clone mã nguồn từ GitHub
 
-Mở Terminal (Command Prompt / PowerShell) và chạy:
+Mở Terminal (hoặc Command Prompt/PowerShell) tại thư mục bạn muốn chứa dự án:
 
 ```bash
 git clone https://github.com/TrieuKy/Public-Administrative-Services-System.git
 cd Public-Administrative-Services-System
 ```
 
----
+### Bước 2: Khởi tạo và Cấu hình Database (PostgreSQL)
 
-### BƯỚC 1 — Cài đặt & Cấu hình PostgreSQL
+1. Mở công cụ quản lý PostgreSQL (khuyến nghị **pgAdmin 4**).
+2. Tạo một database mới với tên: `hanh_chinh_cong`.
+3. Nhập dữ liệu và cấu trúc bảng mẫu:
+   - Click phải vào DB `hanh_chinh_cong` vừa tạo -> chọn **Query Tool**.
+   - Mở file `hanh_chinh_cong.sql` nằm trong thư mục gốc của dự án.
+   - Nhấn **Execute** (hoặc `F5`) để chạy lệnh SQL, thao tác này sẽ tạo toàn bộ table và dữ liệu khởi tạo.
 
-#### 1.1 Mở pgAdmin 4
+*(Lưu ý: Mặc định PostgreSQL chạy port `5432`, nếu bạn đổi port khi cài đặt, hãy nhớ port đó cho bước cấu hình môi trường bên dưới).*
 
-- Mở pgAdmin 4 từ Start Menu
-- Đăng nhập bằng **Master Password** (bạn tự đặt lúc cài)
-- Ở cột trái: click vào **Servers** → tên server của bạn (thường là `PostgreSQL 16` hoặc `localhost`)
+### Bước 3: Thiết lập API Keys cho AI
 
-#### 1.2 Xác nhận port PostgreSQL
+Dự án này sử dụng 2 dịch vụ AI, bạn cần đăng ký khóa API (API Key) miễn phí:
+1. **Gemini API (Hỗ trợ Chatbot):** Lấy tại [Google AI Studio](https://aistudio.google.com/app/apikey).
+2. **Claude API (Hỗ trợ OCR tài liệu & Verify):** Lấy tại [Anthropic Console](https://console.anthropic.com/settings/keys).
 
-> ⚠️ **Quan trọng:** PostgreSQL mặc định chạy trên port **5432**, nhưng dự án này cấu hình port **5000**. Cần kiểm tra port thực tế của bạn.
+### Bước 4: Cài đặt và Chạy Backend
 
-**Cách kiểm tra port:**
-- Trong pgAdmin → click phải vào tên server → **Properties**
-- Tab **Connection** → xem **Port** là bao nhiêu
-- Ghi nhớ port đó để điền vào `.env`
+1. Di chuyển vào thư mục backend và cài đặt thư viện:
+   ```bash
+   cd backend
+   npm install
+   ```
+2. Tạo file `.env`: Tại thư mục `backend/`, copy file `.env.example` và đổi tên thành `.env`. Cấu hình nội dung bên trong như sau:
+   ```env
+   PORT = 3001
+   NODE_ENV = development
 
-#### 1.3 Tạo Database mới
+   # Cấu hình Database
+   DB_HOST = localhost
+   DB_PORT = 5432             # <-- Đổi thành port PostgreSQL thực tế của bạn
+   DB_NAME = hanh_chinh_cong
+   DB_USER = postgres         # <-- Tên user quản trị postgres
+   DB_PASSWORD = 123          # <-- Đổi thành mật khẩu postgres của bạn
 
-1. Trong pgAdmin, click phải vào **Databases** (dưới tên server)
-2. Chọn **Create → Database...**
-3. Ở tab **General**, điền:
-   - **Database:** `hanh_chinh_cong`
-4. Nhấn **Save**
+   # JWT
+   JWT_SECRET = super_secret_key_change_me
+   JWT_EXPIRES_IN = 1h
+   JWT_REFRESH_SECRET = refresh_super_secret_key_change_me
+   JWT_REFRESH_EXPIRES_IN = 7d
 
-Bạn sẽ thấy database `hanh_chinh_cong` xuất hiện trong danh sách.
+   # Cấu hình AI API Keys (Từ Bước 3)
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ANTHROPIC_API_KEY=your_claude_api_key_here
 
-#### 1.4 Import file SQL (Schema + Dữ liệu mẫu)
+   # Các cài đặt khác (Giữ nguyên)
+   UPLOAD_DIR = uploads
+   MAX_FILE_SIZE = 5242880
+   CLIENT_URL = http://localhost:5173
+   OCR_SERVICE_URL=http://localhost:5050
+   ```
+3. Khởi động Backend Server (Lệnh này sẽ chạy song song Backend API trên cổng 3001 và OCR Service trên cổng 5050):
+   ```bash
+   npm run dev:all
+   ```
 
-**Cách 1 — Qua pgAdmin Query Tool (khuyến nghị):**
+### Bước 5: Tạo Dữ Liệu Mẫu Bổ Sung (Tùy chọn)
 
-1. Click vào database `hanh_chinh_cong` (để chọn nó)
-2. Trên thanh menu → **Tools → Query Tool**
-3. Cửa sổ Query Tool mở ra → click icon **📂 Open File** (hoặc `Ctrl+O`)
-4. Tìm và chọn file `hanh_chinh_cong.sql` trong thư mục dự án vừa clone
-5. Nhấn **▶ Execute / Refresh** (hoặc phím `F5`)
-6. Chờ đến khi thấy: `Query returned successfully`
-
-**Cách 2 — Qua Command Line (nhanh hơn):**
-
-```bash
-# Thay YOUR_PASSWORD bằng mật khẩu postgres của bạn
-# Thay 5432 bằng port PostgreSQL thực tế của bạn
-psql -U postgres -p 5432 -d hanh_chinh_cong -f hanh_chinh_cong.sql
-```
-
-**Kiểm tra import thành công:**
-
-Chạy query này trong Query Tool:
-```sql
-SELECT table_name FROM information_schema.tables
-WHERE table_schema = 'public'
-ORDER BY table_name;
-```
-
-Phải thấy các bảng: `ai_logs`, `application_histories`, `applications`, `audit_logs`, `comments`, `documents`, `notifications`, `payments`, `posts`, `schedules`, `services`, `users`
-
----
-
-### BƯỚC 2 — Cấu hình Backend
-
-#### 2.1 Tạo file `.env` cho backend
-
-Trong thư mục `backend/`, tạo file tên `.env` (không có phần mở rộng khác):
+Để tạo sẵn các tài khoản cán bộ và các dịch vụ hành chính ban đầu, hãy mở thêm một Terminal mới, chuyển vào thư mục `backend` và chạy các lệnh:
 
 ```bash
-# Mở thư mục backend
 cd backend
+node scripts/seedOfficer.js   # Tạo tài khoản Cán bộ
+node scripts/seedData.js      # Tạo dữ liệu Dịch vụ & Hồ sơ mẫu
 ```
+*(Nếu muốn xóa sạch database và chạy lại từ đầu, bạn có thể dùng lệnh: `node scripts/reset.js`)*
 
-Tạo file `backend/.env` với nội dung sau (chỉnh sửa theo máy bạn):
+### Bước 6: Cài đặt và Chạy Frontend
 
-```env
-PORT = 3001
-NODE_ENV = development
-
-# ── Database PostgreSQL ────────────────────────────────
-DB_HOST     = localhost
-DB_PORT     = 5432          # ← SỬA: port PostgreSQL thực tế của bạn (5432 hoặc 5000)
-DB_NAME     = hanh_chinh_cong
-DB_USER     = postgres
-DB_PASSWORD = 123           # ← SỬA: mật khẩu postgres của bạn
-
-# ── JWT Authentication ─────────────────────────────────
-JWT_SECRET              = super_secret_key_change_this_in_production
-JWT_EXPIRES_IN          = 1h
-JWT_REFRESH_SECRET      = refresh_super_secret_key_change_this
-JWT_REFRESH_EXPIRES_IN  = 7d
-
-# ── Email (để trống = in ra console, không gửi mail thật) ──
-EMAIL_HOST     = smtp.gmail.com
-EMAIL_PORT     = 587
-EMAIL_USER     =
-EMAIL_PASSWORD =
-
-# ── Gemini AI (OCR CCCD, Chatbot, Phân tích tài liệu) ──
-# Lấy key MIỄN PHÍ tại: https://aistudio.google.com/app/apikey
-GEMINI_API_KEY = AIza...key_của_bạn...
-
-# ── Upload ─────────────────────────────────────────────
-UPLOAD_DIR    = uploads
-MAX_FILE_SIZE = 5242880     # 5MB
-
-# ── CORS ───────────────────────────────────────────────
-CLIENT_URL = http://localhost:5173
-```
-
-> ⚠️ **Bắt buộc thay đổi:**
-> - `DB_PORT` — xem lại từ Bước 1.2
-> - `DB_PASSWORD` — mật khẩu postgres khi cài đặt
-> - `GEMINI_API_KEY` — xem Bước 2.2
-
-#### 2.2 Lấy Gemini API Key (Miễn Phí)
-
-1. Truy cập: **https://aistudio.google.com/app/apikey**
-2. Đăng nhập bằng Google Account
-3. Nhấn **"Create API Key"**
-4. Chọn project (hoặc tạo mới)
-5. Copy key dạng `AIzaSy...`
-6. Dán vào `GEMINI_API_KEY` trong file `.env`
-
-> 💡 **Free tier:** 15 requests/phút, 1.500 requests/ngày — Đủ dùng cho demo  
-> 💡 **Không cần thẻ ngân hàng**
-
-#### 2.3 Cài đặt dependencies và chạy
+Mở thêm một Terminal mới, chuyển hướng vào thư mục frontend:
 
 ```bash
-# Đảm bảo bạn đang ở trong thư mục backend/
-cd backend
-
-# Cài đặt tất cả packages
-npm install
-
-# Chạy backend (development mode với nodemon + OCR server)
-npm run dev:all
-```
-
-**Output thành công trông như sau:**
-```
-[0] Server running on port 3001
-[0] ✅ Database connected successfully
-[1] OCR Service running on port 5050
-```
-
-> ❌ **Nếu thấy lỗi kết nối database:** Kiểm tra lại `DB_PORT` và `DB_PASSWORD` trong `.env`
-
----
-
-### BƯỚC 3 — Tạo Dữ liệu Mẫu (Seed)
-
-Mở thêm một terminal mới, chạy trong thư mục `backend/`:
-
-```bash
-# Tạo tài khoản cán bộ mẫu (Nguyễn Văn B)
-node scripts/seedOfficer.js
-
-# Tạo dữ liệu dịch vụ và hồ sơ mẫu
-node scripts/seedData.js
-```
-
-**Nếu muốn reset toàn bộ database về ban đầu:**
-```bash
-node scripts/reset.js
-```
-
----
-
-### BƯỚC 4 — Cấu hình và Chạy Frontend
-
-Mở terminal mới (để terminal backend vẫn chạy), chạy:
-
-```bash
-# Vào thư mục frontend
 cd frontend
-
-# Cài đặt packages
 npm install
-
-# Chạy frontend
 npm run dev
 ```
 
-**Output thành công:**
-```
-  VITE v6.x.x  ready in xxx ms
-
-  ➜  Local:   http://localhost:5173/
-  ➜  Network: use --host to expose
-```
-
-Mở trình duyệt và truy cập: **http://localhost:5173**
+Truy cập hệ thống thông qua trình duyệt tại địa chỉ: **http://localhost:5173**
 
 ---
 
-### BƯỚC 5 — Đăng ký & Đăng nhập
+## 🔑 Tài Khoản Truy Cập Mẫu
 
-#### Đăng ký tài khoản Công dân mới:
+Nếu bạn đã chạy lệnh `node scripts/seedOfficer.js` (Bước 5), bạn có thể dùng tài khoản sau để đăng nhập với quyền Cán bộ (Officer):
 
-1. Vào **http://localhost:5173/register**
-2. Điền thông tin và đăng ký
-3. Sau khi đăng ký, nhìn vào **terminal của backend**, sẽ thấy:
-   ```
-   🔗 Verify URL: http://localhost:3001/api/v1/auth/verify?token=xxxxx
-   ```
-4. **Ctrl + Click** vào link đó trong terminal để xác thực email
-5. Quay lại trang web và đăng nhập
+| Quyền | Email | Mật khẩu |
+|-------|-------|----------|
+| 👮 **Cán bộ** | `nguyenvanb@bennghe.gov.vn` | `123456` |
 
-#### Tài khoản Cán bộ mẫu (sau khi chạy seedOfficer.js):
-
-| Vai trò | Email | Mật khẩu |
-|---------|-------|----------|
-| 👮 Cán bộ | `nguyenvanb@bennghe.gov.vn` | `123456` |
-
-#### Cấp quyền Cán bộ cho tài khoản của bạn:
-
-Nếu muốn tài khoản vừa đăng ký có quyền cán bộ, chạy query trong pgAdmin:
-
-```sql
-UPDATE users SET role = 'officer', "isVerified" = true
-WHERE email = 'email-của-bạn@example.com';
-```
-
----
-
-## 🗄️ Sơ Đồ Database
-
-```
-users ──────────────┬── applications ──┬── documents
-                    │        │          ├── comments
-                    │        │          └── application_histories
-                    │        │
-                    │        └── payments
-                    │
-                    └── schedules
-
-services ───────────── applications
-ai_logs ────────────── applications
-posts
-audit_logs
-```
-
-### Mô tả các bảng
-
-| Bảng | Mô tả |
-|------|-------|
-| `users` | Người dùng: citizen / officer / admin |
-| `services` | Danh mục dịch vụ hành chính (khai sinh, kết hôn...) |
-| `applications` | Hồ sơ nộp bởi công dân |
-| `documents` | File đính kèm của từng hồ sơ |
-| `application_histories` | Lịch sử luân chuyển hồ sơ |
-| `comments` | Ghi chú nội bộ giữa cán bộ |
-| `payments` | Lịch sử thanh toán lệ phí |
-| `notifications` | Thông báo cho người dùng |
-| `schedules` | Lịch làm việc cán bộ |
-| `ai_logs` | Log phân tích OCR / AI |
-| `posts` | Tin tức / thông báo công khai |
-| `audit_logs` | Nhật ký thao tác hệ thống |
+**Đối với tài khoản công dân:** Truy cập đường dẫn `http://localhost:5173/register` để đăng ký mới.
+*(Trong quá trình phát triển, link xác thực Email sẽ được hiển thị ngay trong màn hình Terminal của Backend. Chỉ cần click vào link đó để hoàn tất việc kích hoạt tài khoản).*
 
 ---
 
 ## 🐛 Xử Lý Lỗi Thường Gặp
 
-### Lỗi Backend
-
-| Lỗi | Nguyên nhân | Giải pháp |
-|-----|------------|-----------|
-| `ECONNREFUSED localhost:5432` | PostgreSQL chưa chạy hoặc sai port | Mở pgAdmin kiểm tra, sửa `DB_PORT` trong `.env` |
-| `password authentication failed` | Sai mật khẩu postgres | Sửa `DB_PASSWORD` trong `.env` |
-| `database "hanh_chinh_cong" does not exist` | Chưa tạo database | Thực hiện lại Bước 1.3 |
-| `relation "users" does not exist` | Chưa import SQL | Thực hiện lại Bước 1.4 |
-| `type already exists` khi import SQL | Database đã có dữ liệu cũ | Drop database, tạo lại, import lại |
-| `Cannot find module 'xxx'` | Chưa `npm install` | Chạy `npm install` trong thư mục `backend/` |
-| `API key not valid` (Gemini) | Key sai hoặc chưa điền | Xem lại Bước 2.2, lấy key mới |
-
-### Lỗi Frontend
-
-| Lỗi | Nguyên nhân | Giải pháp |
-|-----|------------|-----------|
-| Trang trắng / API 404 | Backend chưa chạy | Chạy `npm run dev:all` trong `backend/` trước |
-| `Network Error` | CORS hoặc backend offline | Kiểm tra terminal backend còn chạy không |
-| Không upload được file | Thư mục `uploads/` không tồn tại | Tạo thư mục `backend/uploads/` thủ công |
-
-### Reset Database khi gặp sự cố
-
-```bash
-# Trong pgAdmin → Query Tool, chạy:
-DROP DATABASE hanh_chinh_cong;
-CREATE DATABASE hanh_chinh_cong;
-
-# Sau đó import lại file SQL (Bước 1.4)
-# Và chạy lại seed (Bước 3)
-```
-
----
-
-## 📋 Tóm Tắt Lệnh
-
-```bash
-# ── Clone ──────────────────────────────────────────────
-git clone https://github.com/TrieuKy/Public-Administrative-Services-System.git
-cd Public-Administrative-Services-System
-
-# ── Backend ────────────────────────────────────────────
-cd backend
-npm install
-# (tạo file .env trước - xem Bước 2.1)
-npm run dev:all              # Chạy cả backend + OCR server
-
-# ── Seed dữ liệu (terminal khác) ───────────────────────
-node scripts/seedOfficer.js  # Tạo tài khoản cán bộ
-node scripts/seedData.js     # Tạo dữ liệu dịch vụ mẫu
-
-# ── Frontend (terminal khác) ────────────────────────────
-cd frontend
-npm install
-npm run dev
-```
-
-**Các port mặc định:**
-| Service | URL |
-|---------|-----|
-| 🖥️ Frontend | http://localhost:5173 |
-| 🔌 Backend API | http://localhost:3001 |
-| 🤖 OCR Service | http://localhost:5050 |
-| 🗄️ PostgreSQL | localhost:5432 (hoặc port của bạn) |
-
----
-
-## 🔑 Cấu Trúc File `.env` Hoàn Chỉnh
-
-File `backend/.env` — **Bắt buộc tạo thủ công, không có trong git:**
-
-```env
-PORT = 3001
-NODE_ENV = development
-
-# Database
-DB_HOST     = localhost
-DB_PORT     = 5432
-DB_NAME     = hanh_chinh_cong
-DB_USER     = postgres
-DB_PASSWORD = your_postgres_password
-
-# JWT
-JWT_SECRET             = change_this_to_random_string
-JWT_EXPIRES_IN         = 1h
-JWT_REFRESH_SECRET     = change_this_too
-JWT_REFRESH_EXPIRES_IN = 7d
-
-# Email (để trống để dùng console log)
-EMAIL_HOST     =
-EMAIL_PORT     = 587
-EMAIL_USER     =
-EMAIL_PASSWORD =
-
-# AI - Lấy tại https://aistudio.google.com/app/apikey
-GEMINI_API_KEY = AIza...
-
-# Upload
-UPLOAD_DIR    = uploads
-MAX_FILE_SIZE = 5242880
-CLIENT_URL    = http://localhost:5173
-```
-
----
-
-## 📊 API Endpoints
-
-```
-# Auth
-POST   /api/v1/auth/register
-POST   /api/v1/auth/login
-GET    /api/v1/auth/verify?token=xxx
-GET    /api/v1/auth/me
-PUT    /api/v1/auth/me
-
-# Dịch vụ & Hồ sơ (Công dân)
-GET    /api/v1/services
-POST   /api/v1/applications
-GET    /api/v1/applications
-GET    /api/v1/applications/:id
-POST   /api/v1/applications/:id/documents
-POST   /api/v1/applications/:id/submit
-
-# Cán bộ
-GET    /api/v1/officer/applications
-PATCH  /api/v1/officer/applications/:id/approve
-PATCH  /api/v1/officer/applications/:id/reject
-PATCH  /api/v1/officer/applications/:id/request-supplement
-
-# AI
-POST   /api/v1/ai/chat                      # Chatbot
-POST   /api/v1/ai/ocr-cccd-dual             # OCR 2 mặt CCCD
-POST   /api/v1/ai/ocr-group                 # OCR nhiều tài liệu
-POST   /api/v1/ai/analyze-application/:id   # Phân tích hồ sơ
-```
+| Vấn đề | Cách khắc phục |
+|--------|----------------|
+| **Lỗi `ECONNREFUSED` khi kết nối DB** | Kiểm tra dịch vụ PostgreSQL đã chạy chưa và xác minh lại thông số `DB_PORT`, `DB_PASSWORD` trong file `.env`. |
+| **Lỗi `relation "users" does not exist`** | Do chưa import file cấu trúc `hanh_chinh_cong.sql` vào database. Hãy thực hiện lại Bước 2. |
+| **Giao diện không gọi được API (Network Error)** | Kiểm tra lại terminal Backend xem server đã khởi chạy thành công (`✅ Database connected successfully`) chưa. |
+| **Chức năng OCR / Chatbot không hoạt động** | Đảm bảo bạn đã nhập chính xác `GEMINI_API_KEY` và `ANTHROPIC_API_KEY` trong file `.env`. Đồng thời kiểm tra xem tài khoản API có bị vượt quá giới hạn gọi miễn phí không. |
 
 ---
 
@@ -530,6 +226,6 @@ POST   /api/v1/ai/analyze-application/:id   # Phân tích hồ sơ
 
 📝 *Đồ án cơ sở — Sinh viên HUTECH*
 
-**Liên hệ:** Tạo [Issue](https://github.com/TrieuKy/Public-Administrative-Services-System/issues) nếu gặp vấn đề khi cài đặt
+Mọi thắc mắc hoặc lỗi phát sinh trong quá trình clone có thể tạo [Issue](https://github.com/TrieuKy/Public-Administrative-Services-System/issues) để được hỗ trợ.
 
 </div>
