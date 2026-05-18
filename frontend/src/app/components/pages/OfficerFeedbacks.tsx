@@ -23,6 +23,7 @@ export function OfficerFeedbacks() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterTopic, setFilterTopic] = useState('');
   const [selected, setSelected] = useState<any | null>(null);
   const [updating, setUpdating] = useState(false);
 
@@ -33,8 +34,10 @@ export function OfficerFeedbacks() {
   const fetch = async () => {
     setLoading(true);
     try {
-      const params = filterStatus ? `?status=${filterStatus}` : '';
-      const res = await axiosInstance.get(`/officer/feedbacks${params}`);
+      const params = new URLSearchParams();
+      if (filterStatus) params.append('status', filterStatus);
+      if (filterTopic) params.append('topic', filterTopic);
+      const res = await axiosInstance.get(`/officer/feedbacks?${params.toString()}`);
       if (res.data.success) {
         setFeedbacks(res.data.data.feedbacks || []);
         setTotal(res.data.data.total || 0);
@@ -46,7 +49,7 @@ export function OfficerFeedbacks() {
     }
   };
 
-  useEffect(() => { fetch(); }, [filterStatus]);
+  useEffect(() => { fetch(); }, [filterStatus, filterTopic]);
 
   const updateStatus = async (id: string, status: string) => {
     setUpdating(true);
@@ -161,6 +164,22 @@ export function OfficerFeedbacks() {
               {opt.label}
             </button>
           ))}
+
+          <div className="h-6 w-px bg-gray-300 mx-2"></div>
+          
+          <select
+            value={filterTopic}
+            onChange={(e) => setFilterTopic(e.target.value)}
+            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg text-gray-600 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition"
+          >
+            <option value="">Tất cả lĩnh vực</option>
+            <option value="An ninh trật tự">An ninh trật tự</option>
+            <option value="Môi trường">Môi trường</option>
+            <option value="Giao thông đô thị">Giao thông đô thị</option>
+            <option value="Thủ tục hành chính">Thủ tục hành chính</option>
+            <option value="Hạ tầng">Hạ tầng</option>
+            <option value="Khác">Khác</option>
+          </select>
         </div>
 
         {/* Table */}

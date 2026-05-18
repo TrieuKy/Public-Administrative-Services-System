@@ -26,9 +26,10 @@ exports.submitFeedback = async (req, res) => {
 // Officer: lấy danh sách phản ánh kiến nghị
 exports.getFeedbacks = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status } = req.query;
+    const { page = 1, limit = 20, status, topic } = req.query;
     const where = { type: 'feedback' };
     if (status) where.status = status;
+    if (topic) where.topic = topic;
 
     const { rows, count } = await Comment.findAndCountAll({
       where,

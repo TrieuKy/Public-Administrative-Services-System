@@ -128,7 +128,7 @@ exports.updateMe = async (req, res) => {
       nationality, issueDate, expiryDate, issuePlace, password 
     } = req.body;
 
-    await user.update({
+    const updateData = {
       fullName:       fullName        !== undefined ? fullName        : user.fullName,
       dob:            dob             !== undefined ? dob             : user.dob,
       phone:          phone           !== undefined ? phone           : user.phone,
@@ -145,8 +145,13 @@ exports.updateMe = async (req, res) => {
       issueDate:      issueDate       !== undefined ? issueDate       : user.issueDate,
       expiryDate:     expiryDate      !== undefined ? expiryDate      : user.expiryDate,
       issuePlace:     issuePlace      !== undefined ? issuePlace      : user.issuePlace,
-      password:       password        !== undefined ? password        : user.password,
-    });
+    };
+    
+    if (password) {
+      updateData.password = password;
+    }
+
+    await user.update(updateData);
 
     // Reload để trả về dữ liệu mới nhất
     const updatedUser = await User.findByPk(req.user.id, {
@@ -179,7 +184,7 @@ exports.forgotPassword = async (req, res) => {
     
     let emailSent = false;
     try {
-      await emailService.sendVerificationEmail(email, resetToken, 'reset');
+      await emailService.sendResetPasswordEmail(email, resetToken);
       emailSent = true;
     } catch (emailErr) {
       console.log('\n=================================================');
@@ -189,6 +194,25 @@ exports.forgotPassword = async (req, res) => {
     }
 
     return success(res, null, 'Nếu email tồn tại trong hệ thống, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu');
+  } catch (err) {
+    return error(res, err.message, 500);
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) return error(res, 'Token và mật khẩu mới là bắt buộc', 400);
+
+    const user = await User.findOne({ where: { verifyToken: token } });
+    if (!user) return error(res, 'Token không hợp lệ hoặc đã hết hạn', 400);
+
+    await user.update({
+      password: newPassword,
+      verifyToken: null
+    });
+
+    return success(res, null, 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.');
   } catch (err) {
     return error(res, err.message, 500);
   }

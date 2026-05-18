@@ -25,15 +25,31 @@ const send = (to, subject, html) => {
 exports.sendVerificationEmail = (to, token) => {
   const url = `${process.env.CLIENT_URL || 'http://localhost:5173'}/verify-email?token=${token}`;
   
-  console.log('\\n=====================================================');
+  console.log('\n=====================================================');
   console.log(`🚀 [DEV MODE] Đã giả lập gửi Email xác thực tới: ${to}`);
   console.log(`👉 Link kích hoạt: \x1b[31m${url}\x1b[0m`);
-  console.log('=====================================================\\n');
+  console.log('=====================================================\n');
 
   return send(to, 'Xác nhận tài khoản', `
     <h2>Xác nhận tài khoản của bạn</h2>
     <p>Nhấn vào liên kết bên dưới để kích hoạt tài khoản:</p>
     <a href="${url}" style="background:#185FA5;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none">Xác nhận email</a>
+    <p style="color:#888;margin-top:16px">Liên kết có hiệu lực trong 24 giờ.</p>
+  `);
+};
+
+exports.sendResetPasswordEmail = (to, token) => {
+  const url = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
+  
+  console.log('\n=====================================================');
+  console.log(`🚀 [DEV MODE] Đã giả lập gửi Email khôi phục mật khẩu tới: ${to}`);
+  console.log(`👉 Link đặt lại mật khẩu: \x1b[31m${url}\x1b[0m`);
+  console.log('=====================================================\n');
+
+  return send(to, 'Khôi phục mật khẩu', `
+    <h2>Khôi phục mật khẩu của bạn</h2>
+    <p>Nhấn vào liên kết bên dưới để đặt lại mật khẩu:</p>
+    <a href="${url}" style="background:#185FA5;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none">Đặt lại mật khẩu</a>
     <p style="color:#888;margin-top:16px">Liên kết có hiệu lực trong 24 giờ.</p>
   `);
 };

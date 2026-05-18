@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, X, Save, LayoutList, ListPlus, Minus } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, LayoutList, ListPlus, Minus, Eye, EyeOff } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { toast } from 'react-toastify';
@@ -62,7 +62,7 @@ export function OfficerServicesPage() {
   const fetchServices = async () => {
     setLoading(true);
     try {
-      const res = await axiosInstance.get('/services?limit=100');
+      const res = await axiosInstance.get('/services?limit=100&includeHidden=true');
       setServices(res.data?.data?.services || []);
     } catch {
       toast.error('Không thể tải danh sách dịch vụ');
@@ -124,10 +124,20 @@ export function OfficerServicesPage() {
     }
   };
 
+  const handleToggleActive = async (svc: Service) => {
+    try {
+      await axiosInstance.put(`/services/${svc.id}`, { isActive: !svc.isActive });
+      toast.success(svc.isActive ? 'Đã ẩn dịch vụ' : 'Đã hiện dịch vụ');
+      fetchServices();
+    } catch {
+      toast.error('Không thể thay đổi trạng thái dịch vụ');
+    }
+  };
+
   const handleDelete = async (id: string) => {
     try {
       await axiosInstance.delete(`/services/${id}`);
-      toast.success('Đã ẩn dịch vụ');
+      toast.success('Đã xóa dịch vụ');
       setDeleteConfirm(null);
       fetchServices();
     } catch {
@@ -229,7 +239,10 @@ export function OfficerServicesPage() {
               {filtered.map(svc => (
                 <tr key={svc.id} className="hover:bg-gray-50 transition">
                   <td className="px-6 py-4">
-                    <p className="font-medium text-gray-900">{svc.name}</p>
+                    <div className="flex items-center gap-2">
+                      {!svc.isActive && <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-[10px] uppercase font-bold rounded">Đã ẩn</span>}
+                      <p className={`font-medium ${!svc.isActive ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{svc.name}</p>
+                    </div>
                     <p className="text-xs text-gray-500 mt-0.5">{svc.agency}</p>
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-600">{svc.processingTime}</td>
@@ -247,9 +260,16 @@ export function OfficerServicesPage() {
                         <Pencil size={17} />
                       </button>
                       <button
+                        onClick={() => handleToggleActive(svc)}
+                        className={`p-1.5 transition rounded ${svc.isActive ? 'text-gray-400 hover:text-red-600' : 'text-green-500 hover:text-green-700'}`}
+                        title={svc.isActive ? "Ẩn dịch vụ" : "Hiện dịch vụ"}
+                      >
+                        {svc.isActive ? <EyeOff size={17} /> : <Eye size={17} />}
+                      </button>
+                      <button
                         onClick={() => setDeleteConfirm(svc.id)}
                         className="p-1.5 text-gray-400 hover:text-red-600 transition rounded"
-                        title="Xóa"
+                        title="Xóa vĩnh viễn"
                       >
                         <Trash2 size={17} />
                       </button>
@@ -462,17 +482,18 @@ export function OfficerServicesPage() {
 
       {/* Delete Confirm */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Xác nhận ẩn dịch vụ</h3>
-            <p className="text-gray-600 text-sm mb-6">Dịch vụ này sẽ bị ẩn khỏi trang công dân nhưng dữ liệu vẫn được giữ lại.</p>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Xác nhận xóa vĩnh viễn</h3>
+            <p className="text-gray-600 text-sm mb-6">Bạn có chắc chắn muốn xóa dịch vụ này không? Dữ liệu sẽ bị xóa khỏi hệ thống.</p>
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => setDeleteConfirm(null)} className="flex-1">Hủy</Button>
-              <Button onClick={() => handleDelete(deleteConfirm)} className="flex-1 bg-red-600 hover:bg-red-700 text-white">Ẩn dịch vụ</Button>
+              <Button onClick={() => handleDelete(deleteConfirm)} className="flex-1 bg-red-600 hover:bg-red-700 text-white">Xóa dịch vụ</Button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }

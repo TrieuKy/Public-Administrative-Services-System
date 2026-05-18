@@ -23,14 +23,17 @@ const SEED_SERVICES = [
 // GET /services — public
 exports.getServices = async (req, res) => {
   try {
-    const { category, page = 1, limit = 50 } = req.query;
+    const { category, page = 1, limit = 50, includeHidden } = req.query;
 
     const existCount = await Service.count();
     if (existCount === 0) {
       await Service.bulkCreate(SEED_SERVICES);
     }
 
-    const where = { isActive: true };
+    const where = {};
+    if (includeHidden !== 'true') {
+      where.isActive = true;
+    }
     if (category) where.category = category;
 
     const { rows, count } = await Service.findAndCountAll({
@@ -92,13 +95,13 @@ exports.updateService = async (req, res) => {
   } catch (err) { return error(res, err.message, 500); }
 };
 
-// DELETE /services/:id — officer/admin only (soft delete)
+// DELETE /services/:id — officer/admin only (hard delete)
 exports.deleteService = async (req, res) => {
   try {
     const service = await Service.findByPk(req.params.id);
     if (!service) return error(res, 'Dịch vụ không tồn tại', 404);
-    await service.update({ isActive: false });
-    return success(res, null, 'Đã ẩn dịch vụ thành công');
+    await service.destroy();
+    return success(res, null, 'Đã xóa dịch vụ thành công');
   } catch (err) { return error(res, err.message, 500); }
 };
 

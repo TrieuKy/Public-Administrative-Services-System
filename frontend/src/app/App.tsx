@@ -31,6 +31,7 @@ import { OfficerFeedbacks } from './components/pages/OfficerFeedbacks';
 import { OfficerPayments } from './components/pages/OfficerPayments';
 import { NotFoundPage } from './components/pages/NotFoundPage';
 import { ForgotPasswordPage } from './components/pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './components/pages/ResetPasswordPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 function HomePage() {
@@ -80,6 +81,7 @@ function AppContent() {
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/payment" element={<PaymentPage />} />
           <Route path="/feedback" element={<FeedbackPage />} />
 

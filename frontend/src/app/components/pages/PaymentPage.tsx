@@ -202,9 +202,9 @@ export function PaymentPage() {
 
       {/* Payment Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-          <Card className="w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl">
-            <div className="bg-gray-50 border-b px-6 py-4 flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+          <Card className="w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[95vh]">
+            <div className="bg-gray-50 border-b px-6 py-4 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-2">
                 <CreditCard size={20} className="text-[#cc6633]" />
                 <h3 className="font-bold text-lg text-gray-800">Thanh toán trực tuyến</h3>
@@ -214,7 +214,7 @@ export function PaymentPage() {
               </button>
             </div>
 
-            <div className="p-6">
+            <div className="p-6 overflow-y-auto">
               {/* Step indicator */}
               <div className="flex items-center gap-2 mb-6">
                 {[2,3].map((s, i) => (
@@ -238,16 +238,34 @@ export function PaymentPage() {
                     <div className="flex justify-between"><span className="text-gray-600">Mã hồ sơ:</span><span className="font-bold text-gray-900">{searchCode.trim().toUpperCase()}</span></div>
                     <div className="flex justify-between"><span className="text-gray-600">Loại phí:</span><span className="font-medium text-gray-800 text-right ml-4">{paymentFeeType}</span></div>
                   </div>
-                  <div className="text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg p-6">
+                  
+                  <div className="text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg p-6 flex flex-col items-center">
                     <p className="text-gray-500 text-sm mb-1">Tổng tiền thanh toán</p>
-                    <p className="text-4xl font-extrabold text-[#cc6633]">{formatCurrency(paymentAmount)}</p>
-                    {paymentAmount === 0 && <p className="text-green-600 text-sm mt-1 font-medium">Miễn phí theo quy định</p>}
+                    <p className="text-4xl font-extrabold text-[#cc6633] mb-4">{formatCurrency(paymentAmount)}</p>
+                    {paymentAmount === 0 ? (
+                       <p className="text-green-600 text-sm mt-1 font-medium">Miễn phí theo quy định</p>
+                    ) : (
+                      <div className="mt-2 flex flex-col items-center">
+                        <p className="text-sm font-semibold text-gray-800 mb-2">Quét mã QR để thanh toán (VietQR)</p>
+                        <img 
+                          src={`https://img.vietqr.io/image/vietinbank-113366668888-compact.jpg?amount=${paymentAmount}&addInfo=${searchCode.trim().toUpperCase()}&accountName=UBND%20PHUONG%20BEN%20NGHE`} 
+                          alt="VietQR" 
+                          className="w-48 h-48 sm:w-64 sm:h-64 object-contain rounded-xl border border-gray-300 shadow-sm"
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs px-3 py-2 rounded-lg">
-                    ⚠ Vui lòng kiểm tra lại thông tin trước khi xác nhận thanh toán.
+                  
+                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs px-3 py-2 rounded-lg text-center">
+                    ⚠ Vui lòng kiểm tra lại thông tin và nội dung chuyển khoản trước khi xác nhận.
                   </div>
+                  
                   <Button onClick={handlePay} disabled={isLoading} className="w-full bg-green-600 hover:bg-green-700 text-white py-6 text-lg">
-                    {isLoading ? <span className="flex items-center gap-2 justify-center"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Đang xử lý...</span> : 'Xác Nhận Nộp Tiền (Thẻ/QR)'}
+                    {isLoading ? (
+                      <span className="flex items-center gap-2 justify-center"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Đang xử lý...</span>
+                    ) : (
+                      paymentAmount === 0 ? 'Xác Nhận Nhận Biên Lai' : 'Tôi Đã Chuyển Khoản'
+                    )}
                   </Button>
                 </div>
               )}
