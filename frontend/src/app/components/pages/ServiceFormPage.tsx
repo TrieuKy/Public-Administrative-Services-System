@@ -503,7 +503,20 @@ export function ServiceFormPage() {
                     }
                   }
                   const docObj = typeof doc === 'object' ? doc : null;
-                  const templateUrl = docObj?.templateUrl;
+                  // Dùng templateUrl từ DB nếu có, fallback sang map theo tên giấy tờ
+                  const TEMPLATE_MAP: Record<string, string> = {
+                    'khai sinh':      '/templates/ToKhaiDangKyKhaiSinh.docx',
+                    'kết hôn':        '/templates/ToKhaiDangKyKetHon.docx',
+                    'khai tử':        '/templates/ToKhaiDangKyKhaiTu.docx',
+                    'bản sao':        '/templates/ToKhaiCapBanSaoTrichLucHoTich.docx',
+                    'trích lục':      '/templates/ToKhaiCapBanSaoTrichLucHoTich.docx',
+                    'hôn nhân':       '/templates/mau-to-khai-cap-giay-xac-nhan-tinh-trang-hon-nhan.docx',
+                    'cha mẹ con':     '/templates/ToKhaiDangKyNhanChaMeCon.docx',
+                    'tạm trú':        '/templates/ToKhaiDangKyKhaiTu.docx',
+                  };
+                  const docLabel = docStr.toLowerCase();
+                  const fallbackUrl = Object.entries(TEMPLATE_MAP).find(([key]) => docLabel.includes(key))?.[1];
+                  const templateUrl = docObj?.templateUrl || fallbackUrl;
 
                   return (
                     <li key={i} className="flex items-center justify-between gap-4 py-1">

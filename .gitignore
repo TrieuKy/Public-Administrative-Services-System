@@ -71,6 +71,30 @@ tmp_docx_extract/
 # Dùng để test local, không commit lên GitHub
 backend/src/seeders/users.seed.js
 
+# ── Scripts debug/dev tạm thời (không cần trong repo) ─────────
+backend/scripts/checkColumns.js
+backend/scripts/checkServicesCols.js
+backend/scripts/checkUsers.js
+backend/scripts/testFindAll.js
+backend/scripts/verifyUser.js
+backend/scripts/addCurrentFee.js
+backend/scripts/addPaymentColumns.js
+backend/scripts/alter_table.js
+backend/scripts/update_4_services.js
+backend/scripts/update_demo.js
+backend/scripts/hideComplexServices.js
+backend/scripts/seed-ratings.js
+backend/scripts/seedRatings.js
+backend/scripts/seedFeedbacks.js
+backend/scripts/seedMoreFeedbacks.js
+backend/scripts/fixOfficer.js
+
+# ── File log thừa ─────────────────────────────────────────────
+backend/out.txt
+
+# ── OCR server bản sao trong frontend (chỉ dùng ở backend) ───
+frontend/src/ocr/
+
 # ── Logs ─────────────────────────────────────────────────────
 *.log
 npm-debug.log*

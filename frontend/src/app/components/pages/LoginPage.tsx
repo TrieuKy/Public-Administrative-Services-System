@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LogIn, User, Lock, Phone, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { LogIn, User, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -11,7 +11,6 @@ import axiosInstance from '../../../utils/axiosInstance';
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [loginMethod, setLoginMethod] = useState<'account' | 'phone'>('account');
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -23,11 +22,6 @@ export function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginMethod !== 'account') {
-      toast.info("Tính năng Đăng nhập OTP đang được phát triển. Vui lòng chuyển sang dùng Tài Khoản và Mật Khẩu để tiếp tục!");
-      return;
-    }
-
     setErrorText('');
     setLoading(true);
     try {
@@ -85,36 +79,9 @@ export function LoginPage() {
           <p className="text-gray-600 text-sm">Dịch vụ Công Phường 11</p>
         </div>
 
-        {/* Login Method Tabs */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setLoginMethod('account')}
-            className={`flex-1 py-2 rounded-lg transition ${
-              loginMethod === 'account'
-                ? 'bg-red-700 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Tài khoản
-          </button>
-          <button
-            disabled
-            className="flex-1 py-2 rounded-lg transition bg-gray-100 text-gray-400 cursor-not-allowed relative group"
-            title="Tính năng sắp ra mắt"
-          >
-            <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
-              Sắp ra mắt
-            </div>
-            Số điện thoại
-          </button>
-        </div>
-
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {errorText && <div className="text-red-500 text-sm font-medium text-center">{errorText}</div>}
-          {loginMethod === 'account' ? (
-            <>
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   CMND/CCCD hoặc Mã định danh
                 </label>
@@ -154,40 +121,6 @@ export function LoginPage() {
                   </button>
                 </div>
               </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Số điện thoại
-                </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="tel"
-                    placeholder="Nhập số điện thoại"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mã OTP
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Nhập mã OTP"
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                  />
-                  <Button type="button" onClick={() => toast.info("Tính năng Đăng nhập OTP đang được phát triển.")} variant="outline" className="border-red-700 text-red-700 hover:bg-red-50 whitespace-nowrap">
-                    Gửi OTP
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
 
           <div className="flex items-center justify-between text-sm">
             <label className="flex items-center gap-2 cursor-pointer">

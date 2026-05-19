@@ -31,7 +31,9 @@ export function TrackingPage() {
     
     setIsSearching(true);
     try {
-      const res = await axiosInstance.get(`/applications/search?code=${code}`);
+      const apiBase = (window as any).__API_BASE__ || 'http://localhost:3001/api/v1';
+      const { default: axios } = await import('axios');
+      const res = await axios.get(`${apiBase}/applications/search?code=${code}`);
       setSearchResult(res.data.data);
     } catch(err) {
       setSearchResult(null);
