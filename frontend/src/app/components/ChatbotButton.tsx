@@ -1,13 +1,22 @@
 import { MessageCircle, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axiosInstance from '../../utils/axiosInstance';
 
 export function ChatbotButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<{ text: string; sender: 'user' | 'bot' }[]>([
-    { text: 'Xin chào! Tôi là trợ lý ảo của Cổng Dịch vụ công. Tôi có thể giúp gì cho bạn?', sender: 'bot' }
+    { text: 'Xin chào! Tôi là nhân viên hỗ trợ trực tuyến của Dịch vụ Công Phường 11. Bạn cần giúp đỡ gì ạ?', sender: 'bot' }
   ]);
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  // Hiện tooltip sau 3 giây, tắt sau 8 giây
+  useEffect(() => {
+    const t1 = setTimeout(() => setShowTooltip(true), 3000);
+    const t2 = setTimeout(() => setShowTooltip(false), 8000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+
   const [input, setInput] = useState('');
 
   const quickQuestions = [
@@ -95,8 +104,8 @@ export function ChatbotButton() {
                 <MessageCircle className="text-red-700" size={24} />
               </div>
               <div>
-                <h3 className="font-semibold">Trợ lý ảo</h3>
-                <p className="text-xs text-orange-100">Hỗ trợ 24/7</p>
+                <h3 className="font-semibold">Hỗ trợ trực tuyến</h3>
+                <p className="text-xs text-orange-100">Phản hồi nhanh · Thứ 2 – Thứ 7</p>
               </div>
             </div>
             <button
@@ -175,25 +184,36 @@ export function ChatbotButton() {
         </div>
       )}
 
-      {/* Chatbot Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-4 md:right-8 w-16 h-16 bg-gradient-to-br from-red-700 to-orange-600 hover:from-red-800 hover:to-orange-700 text-white rounded-full shadow-2xl flex items-center justify-center z-40 transition-all hover:scale-110 group"
-        aria-label="Mở chatbot hỗ trợ"
-      >
-        {isOpen ? (
-          <X size={28} className="group-hover:rotate-90 transition-transform" />
-        ) : (
-          <MessageCircle size={28} className="group-hover:animate-bounce" />
-        )}
-
-        {/* Notification badge - only show when closed and has messages beyond initial greeting */}
-        {!isOpen && messages.length > 1 && (
-          <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold text-white">
-            {Math.min(messages.length - 1, 9)}
+      {/* Chatbot Floating Button */}
+      <div className="fixed bottom-6 right-4 md:right-8 z-40 flex flex-col items-end gap-2">
+        {/* Tooltip */}
+        {!isOpen && showTooltip && (
+          <div className="bg-white text-gray-700 text-xs font-medium px-3 py-1.5 rounded-full shadow-lg border border-gray-200 whitespace-nowrap animate-fade-in">
+            💬 Bạn cần hỗ trợ?
           </div>
         )}
-      </button>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="relative w-16 h-16 bg-gradient-to-br from-red-700 to-orange-500 hover:from-red-800 hover:to-orange-600 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 group"
+          aria-label="Mở hỗ trợ trực tuyến"
+        >
+          {/* Pulse ring */}
+          {!isOpen && (
+            <span className="absolute inset-0 rounded-full bg-red-500 opacity-30 animate-ping" />
+          )}
+          {isOpen ? (
+            <X size={28} className="group-hover:rotate-90 transition-transform" />
+          ) : (
+            <MessageCircle size={28} />
+          )}
+          {/* Badge */}
+          {!isOpen && messages.length > 1 && (
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center text-xs font-bold text-gray-900 border-2 border-white">
+              {Math.min(messages.length - 1, 9)}
+            </div>
+          )}
+        </button>
+      </div>
     </>
   );
 }

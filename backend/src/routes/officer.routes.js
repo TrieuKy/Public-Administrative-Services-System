@@ -12,7 +12,11 @@ router.patch('/applications/:id/approve',         ctrl.approveApplication);
 router.patch('/applications/:id/reject',          ctrl.rejectApplication);
 router.patch('/applications/:id/request-supplement', ctrl.requestSupplement);
 router.post('/applications/:id/notes',            ctrl.addNote);
-router.get('/applications/:id/print',             ctrl.printApplication);
+router.get('/applications/:id/print',                   ctrl.printApplication);
+router.get('/applications/:id/print-permit',            ctrl.printPermit);
+router.get('/applications/:id/print-marriage',          ctrl.printMarriageCertificate);
+router.get('/applications/:id/print-copy-auth',         ctrl.printCopyAuthentication);
+router.get('/applications/:id/print-death',             ctrl.printDeathExtract);
 
 router.get('/reviews',                            ctrl.getReviews);
 

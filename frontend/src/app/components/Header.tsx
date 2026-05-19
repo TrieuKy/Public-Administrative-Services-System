@@ -54,10 +54,10 @@ export function Header() {
             )}
             <div>
               <div className="text-red-700 text-xl tracking-tight font-bold" style={{ fontFamily: 'serif' }}>
-                CỔNG DỊCH VỤ CÔNG CẤP XÃ/PHƯỜNG
+                DỊCH VỤ CÔNG PHƯỜNG 11
               </div>
               <div className="text-sm text-gray-600 mt-0.5">
-                Kết nối thông tin và dịch vụ hành chính tại cơ sở
+                Kết nối thông tin và dịch vụ hành chính Phường 11
               </div>
             </div>
           </Link>

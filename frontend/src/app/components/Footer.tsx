@@ -10,7 +10,7 @@ export function Footer() {
           <div>
             <h3 className="text-amber-400 mb-4">Về Cổng Dịch vụ công</h3>
             <p className="text-sm leading-relaxed mb-4">
-              Cổng Dịch vụ công cấp Xã/Phường là nền tảng phục vụ dịch vụ công trực tuyến tại cơ sở, phục vụ người dân và doanh nghiệp.
+              Dịch vụ Công Phường 11 là nền tảng phục vụ dịch vụ công trực tuyến, phục vụ người dân và doanh nghiệp trên địa bàn Phường 11.
             </p>
             <div className="flex gap-3">
               <a href="#" className="w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-red-700 transition">
@@ -35,7 +35,7 @@ export function Footer() {
               <li><a href="#" className="hover:text-amber-400 transition">Câu hỏi thường gặp</a></li>
               <li><a href="#" className="hover:text-amber-400 transition">Chính sách bảo mật</a></li>
               <li><Link to="/officer/dashboard" className="hover:text-amber-400 transition">Dành cho cán bộ</Link></li>
-              <li><Link to="/export" className="hover:text-amber-400 transition flex items-center gap-1">⬇ Tải mã nguồn</Link></li>
+
             </ul>
           </div>
 
@@ -58,7 +58,7 @@ export function Footer() {
             <ul className="space-y-3 text-sm">
               <li className="flex items-start gap-3">
                 <MapPin size={18} className="flex-shrink-0 mt-0.5" />
-                <span>UBND Xã/Phường, Huyện/Quận, Tỉnh/Thành phố</span>
+                <span>UBND Phường 11, Quận 3, TP. Hồ Chí Minh</span>
               </li>
               <li className="flex items-center gap-3">
                 <Phone size={18} className="flex-shrink-0" />
@@ -80,7 +80,7 @@ export function Footer() {
         {/* Bottom */}
         <div className="border-t border-gray-800 pt-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
-            <p>© 2026 Cổng Dịch vụ công cấp Xã/Phường. Bản quyền thuộc về UBND Xã/Phường.</p>
+            <p>© 2026 Dịch vụ Công Phường 11. Bản quyền thuộc về UBND Phường 11, Quận 3, TP. Hồ Chí Minh.</p>
             <div className="flex items-center gap-6">
               <a href="#" className="hover:text-amber-400 transition">Bản đồ trang</a>
               <a href="#" className="hover:text-amber-400 transition">Liên hệ</a>

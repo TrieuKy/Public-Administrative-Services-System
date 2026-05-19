@@ -3,6 +3,15 @@ const { success, error } = require('../utils/response');
 const emailService = require('../services/email.service');
 const path = require('path');
 
+// Fix encoding: multer reads originalname as Latin-1, re-encode to UTF-8
+const fixFileName = (name) => {
+  try {
+    return Buffer.from(name, 'latin1').toString('utf8');
+  } catch {
+    return name;
+  }
+};
+
 // UC03 — Danh sách dịch vụ
 exports.getServices = async (req, res) => {
   try {
@@ -69,7 +78,7 @@ exports.uploadDocument = async (req, res) => {
     const doc = await Document.create({
       applicationId: app.id,
       docType,
-      fileName:  req.file.originalname,
+      fileName:  fixFileName(req.file.originalname),
       fileUrl,
       filePath:  req.file.path,
       mimeType:  req.file.mimetype,
@@ -190,7 +199,10 @@ exports.getMyApplications = async (req, res) => {
 
     const { rows, count } = await Application.findAndCountAll({
       where,
-      include: [{ model: Service, as: 'service', attributes: ['name', 'category', 'currentFee'] }],
+      include: [
+        { model: Service, as: 'service', attributes: ['name', 'category', 'currentFee'] },
+        { model: ApplicationHistory, as: 'histories', separate: true, order: [['createdAt', 'DESC']] }
+      ],
       order: [['createdAt', 'DESC']],
       limit: +limit, offset: (+page - 1) * +limit
     });
@@ -232,7 +244,7 @@ exports.supplementDocument = async (req, res) => {
     await Document.create({
       applicationId: app.id,
       docType:     req.body.docType,
-      fileName:    req.file.originalname,
+      fileName:    fixFileName(req.file.originalname),
       fileUrl:     `/uploads/${req.file.filename}`,
       filePath:    req.file.path,
       mimeType:    req.file.mimetype,

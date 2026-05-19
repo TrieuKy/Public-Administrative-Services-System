@@ -1,6 +1,15 @@
 const { Service } = require('../models');
 const { success, error } = require('../utils/response');
 
+// Fix encoding: multer reads originalname as Latin-1, re-encode to UTF-8
+const fixFileName = (name) => {
+  try {
+    return Buffer.from(name, 'latin1').toString('utf8');
+  } catch {
+    return name;
+  }
+};
+
 const SEED_SERVICES = [
   { name: 'Đăng ký khai sinh', category: 'individual', agency: 'Ủy ban nhân dân cấp xã', processingTime: '3 ngày làm việc', processingDays: 3, level: 'Mức độ 4', fee: 'Miễn phí', requiredDocs: ['Giấy chứng sinh', 'CMND/CCCD cha mẹ', 'Giấy đăng ký kết hôn'], isActive: true },
   { name: 'Đăng ký kết hôn', category: 'individual', agency: 'Ủy ban nhân dân cấp xã', processingTime: '1 ngày làm việc', processingDays: 1, level: 'Mức độ 4', fee: 'Miễn phí', requiredDocs: ['Giấy xác nhận tình trạng hôn nhân', 'CMND/CCCD hai bên', 'Sổ hộ khẩu'], isActive: true },
@@ -148,15 +157,15 @@ exports.uploadTemplate = async (req, res) => {
     try {
         await FormTemplate.create({
             serviceId: '00000000-0000-0000-0000-000000000000', // temporary mock ID
-            documentName: req.file.originalname,
-            fileName: req.file.originalname,
+            documentName: fixFileName(req.file.originalname),
+            fileName: fixFileName(req.file.originalname),
             fileUrl: fileUrl,
             extractedFields: extractedFields
         });
     } catch(e) { console.error('FormTemplate save error:', e.message); }
 
     return success(res, {
-      fileName: req.file.originalname,
+      fileName: fixFileName(req.file.originalname),
       fileUrl,
       extractedFields
     });

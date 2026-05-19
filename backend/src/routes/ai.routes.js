@@ -5,6 +5,11 @@ const aiService = require('../services/ai.service');
 const { AiLog } = require('../models');
 const { success, error } = require('../utils/response');
 
+// Fix encoding: multer reads originalname as Latin-1, re-encode to UTF-8
+const fixFileName = (name) => {
+  try { return Buffer.from(name, 'latin1').toString('utf8'); } catch { return name; }
+};
+
 // Multer — lưu file trong bộ nhớ (không ghi ra đĩa) để gửi thẳng lên Gemini
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -240,7 +245,7 @@ router.post('/ocr-group', upload.array('files', 10), async (req, res) => {
     const allFiles = req.files.map((file, i) => ({
       buffer:        file.buffer,
       mimeType:      file.mimetype,
-      fileName:      file.originalname,
+      fileName:      fixFileName(file.originalname),
       originalIndex: i,
     }));
 
@@ -359,6 +364,7 @@ router.post('/analyze-application/:id', auth, async (req, res) => {
     // Build AI prompt để phân tích toàn bộ bộ hồ sơ
     const citizen = app.citizen;
     const requiredDocs = app.service?.requiredDocs || [];
+    const requiredDocLabels = requiredDocs.map(rd => rd?.label || rd?.docType || String(rd)).join(', ');
     const uploadedDocTypes = fileBuffers.map(f => f.docType).join(', ');
 
     const analysisPrompt = `Bạn là chuyên gia thẩm định hồ sơ hành chính Việt Nam với 10 năm kinh nghiệm.
@@ -366,7 +372,7 @@ Hãy phân tích bộ tài liệu sau đây và đưa ra đánh giá khách quan
 
 THÔNG TIN HỒ SƠ:
 - Dịch vụ: ${app.service?.name || 'Không rõ'}
-- Giấy tờ yêu cầu: ${requiredDocs.join(', ') || 'Không rõ'}
+- Giấy tờ yêu cầu: ${requiredDocLabels || 'Không rõ'}
 - Giấy tờ đã nộp: ${uploadedDocTypes}
 - Người nộp: ${citizen?.fullName || 'Không rõ'} (CCCD: ${citizen?.cccd || 'Không rõ'})
 
@@ -437,9 +443,9 @@ CHỈ trả về JSON.`;
     // Kiểm tra thiếu giấy tờ
     const uploadedCategories = result.groups.map(g => g.docCategory);
     const missingDocs = (requiredDocs || []).filter(rd => {
-      const rdLower = rd.toLowerCase();
-      return !uploadedCategories.some(cat => cat && rdLower.includes(cat.toLowerCase().replace('_', ' ')));
-    });
+      const rdLabel = (rd?.label || rd?.docType || String(rd)).toLowerCase();
+      return !uploadedCategories.some(cat => cat && rdLabel.includes(cat.toLowerCase().replace(/_/g, ' ')));
+    }).map(rd => rd?.label || rd?.docType || String(rd));
 
     let recommendation, recommendationLevel;
     if (avgScore >= 80 && missingDocs.length === 0) {
@@ -485,8 +491,8 @@ router.post('/ocr-cccd-dual', auth, upload.fields([{ name: 'front', maxCount: 1 
     const backFile  = files.back[0];
 
     const allFiles = [
-      { buffer: frontFile.buffer, mimeType: frontFile.mimetype, fileName: frontFile.originalname },
-      { buffer: backFile.buffer,  mimeType: backFile.mimetype,  fileName: backFile.originalname },
+      { buffer: frontFile.buffer, mimeType: frontFile.mimetype, fileName: fixFileName(frontFile.originalname) },
+      { buffer: backFile.buffer,  mimeType: backFile.mimetype,  fileName: fixFileName(backFile.originalname) },
     ];
 
     const result = await aiService.ocrMultiGroup(allFiles, null);

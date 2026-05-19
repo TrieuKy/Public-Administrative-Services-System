@@ -1,37 +1,117 @@
-# ── Dependencies ──────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════
+#  .gitignore — WebsiteProject (Dịch vụ Công Phường 11)
+#  Chỉ commit source code — không commit dữ liệu cá nhân,
+#  ảnh, file upload hoặc thông tin nhạy cảm.
+# ═══════════════════════════════════════════════════════════════
+
+# ── Dependencies ─────────────────────────────────────────────
 node_modules/
 .pnp
 .pnp.js
 
-# ── Environment variables (chứa API keys, mật khẩu) ──
+# ── Environment / Secrets (chứa API keys, mật khẩu, DB) ──────
 .env
 .env.local
+.env.development
 .env.development.local
+.env.test
 .env.test.local
+.env.production
 .env.production.local
+*.env
 
-# ── Uploads (ảnh/file người dùng nộp lên) ─────────────
-backend/uploads/*
-!backend/uploads/.gitkeep
-
-# ── Build outputs ──────────────────────────────────────
+# ── Build outputs ─────────────────────────────────────────────
 dist/
 build/
 frontend/dist/
+backend/dist/
+.next/
+out/
 
-# ── Logs ───────────────────────────────────────────────
+# ── Uploads — ảnh & file người dùng nộp (chứa dữ liệu cá nhân)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# ── Hình ảnh ─────────────────────────────────────────────────
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.svg
+*.ico
+*.bmp
+*.tiff
+*.tif
+
+# CHO PHÉP logo ứng dụng (không chứa dữ liệu cá nhân)
+!frontend/public/logo.png
+!frontend/src/assets/logo.png
+
+# ── Tài liệu văn bản / Dữ liệu (chứa thông tin cá nhân) ─────
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.csv
+*.odt
+*.ods
+
+# CHO PHÉP các mẫu tờ khai trống (không chứa dữ liệu)
+!frontend/public/templates/
+!frontend/public/templates/**
+!frontend/src/assets/templates/
+
+# ── Thư mục tài liệu gốc (phôi trống, mẫu — không up) ────────
+Hộ tịch/
+tmp_docx_extract/
+
+# ── Seeder chứa dữ liệu mẫu thật (email, tên, CCCD) ─────────
+# Dùng để test local, không commit lên GitHub
+backend/src/seeders/users.seed.js
+
+# ── Logs ─────────────────────────────────────────────────────
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
 logs/
+*.log.*
 
-# ── OS files ───────────────────────────────────────────
+# ── Hệ điều hành ─────────────────────────────────────────────
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# ── Editor ─────────────────────────────────────────────
+# ── Editor / IDE ──────────────────────────────────────────────
 .vscode/settings.json
+.vscode/launch.json
 .idea/
 *.swp
 *.swo
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+
+# ── Testing ───────────────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ── Misc ─────────────────────────────────────────────────────
+*.cache
+.cache/
+.parcel-cache/
+.turbo/
+*.tgz
+*.zip
+*.rar
+*.7z

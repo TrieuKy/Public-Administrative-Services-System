@@ -284,7 +284,7 @@ export function PaymentPage() {
                   <div className="border-2 border-dashed border-gray-300 rounded-xl overflow-hidden" id="receipt-block">
                     <div className="bg-gradient-to-r from-[#cc6633] to-orange-500 text-white px-5 py-4 text-center">
                       <div className="font-bold text-lg">BIÊN LAI THU PHÍ ĐIỆN TỬ</div>
-                      <div className="text-orange-100 text-xs mt-1">Cổng Dịch vụ công cấp Xã/Phường</div>
+                      <div className="text-orange-100 text-xs mt-1">Dịch vụ Công Phường 11</div>
                     </div>
                     <div className="bg-white px-5 py-4 space-y-2.5 text-sm">
                       {[

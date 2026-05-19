@@ -128,7 +128,7 @@ export function OfficerLayout() {
           </div>
           <div>
             <h1 className="font-bold text-sm leading-tight uppercase tracking-wide">Cổng Dịch vụ công</h1>
-            <p className="text-xs text-yellow-500">Cán bộ UBND Xã/Phường</p>
+            <p className="text-xs text-yellow-500">Cán bộ UBND Phường 11</p>
           </div>
         </div>
 

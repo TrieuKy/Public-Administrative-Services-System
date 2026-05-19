@@ -82,7 +82,7 @@ export function LoginPage() {
             <img src={quochuy} alt="Quốc huy Việt Nam" className="w-20 h-20 object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-red-800 mb-2">Đăng nhập</h1>
-          <p className="text-gray-600 text-sm">Cổng Dịch vụ công cấp Xã/Phường</p>
+          <p className="text-gray-600 text-sm">Dịch vụ Công Phường 11</p>
         </div>
 
         {/* Login Method Tabs */}

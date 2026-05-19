@@ -32,6 +32,7 @@ import { OfficerPayments } from './components/pages/OfficerPayments';
 import { NotFoundPage } from './components/pages/NotFoundPage';
 import { ForgotPasswordPage } from './components/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './components/pages/ResetPasswordPage';
+import { PostDetailPage } from './components/pages/PostDetailPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 function HomePage() {
@@ -84,6 +85,7 @@ function AppContent() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/payment" element={<PaymentPage />} />
           <Route path="/feedback" element={<FeedbackPage />} />
+          <Route path="/posts/:id" element={<PostDetailPage />} />
 
           {/* Officer/Admin Routes (Nested inside layout) */}
           <Route path="/officer" element={<OfficerRoute><OfficerLayout /></OfficerRoute>}>
@@ -103,7 +105,7 @@ function AppContent() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </ErrorBoundary>
-      <ToastContainer position="top-right" autoClose={3000} />
+      <ToastContainer position="top-right" autoClose={3000} aria-label="Thông báo" />
     </>
   );
 }

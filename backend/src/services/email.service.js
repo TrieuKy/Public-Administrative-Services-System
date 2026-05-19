@@ -68,10 +68,21 @@ exports.sendStatusUpdate = (to, code, status, note = '') => {
     NEED_MORE: { title: 'Cần bổ sung giấy tờ',  color: '#633806' },
   };
   const { title, color } = labels[status] || { title: 'Cập nhật hồ sơ', color: '#185FA5' };
+  const pickupSection = status === 'COMPLETED' ? `
+    <div style="margin-top:18px;padding:16px 20px;background:#f0fdf4;border:2px solid #22c55e;border-radius:10px">
+      <h3 style="color:#166534;margin:0 0 8px 0">&#128196; Thông báo nhận giấy tờ</h3>
+      <p style="color:#166534;margin:0">Giấy tờ của bạn đã được xử lý hoàn tất và đóng dấu. Vui lòng <strong>đến trực tiếp UBND Phường</strong> để nhận giấy tờ gốc có dấu đỏ và chữ ký của cán bộ có thẩm quyền.</p>
+      <ul style="color:#166534;margin:10px 0 0 0;padding-left:20px">
+        <li>Mang theo <strong>CMND/CCCD gốc</strong></li>
+        <li>Giờ làm việc: <strong>7:30 – 16:30</strong> (Thứ Hai – Thứ Sáu)</li>
+        <li>Nếu có thắc mắc, gọi: <strong>1900 xxxx</strong></li>
+      </ul>
+    </div>` : '';
   return send(to, `${title} — ${code}`, `
     <h2 style="color:${color}">${title}</h2>
     <p>Mã hồ sơ: <strong>${code}</strong></p>
     ${note ? `<p>Ghi chú từ cán bộ: <em>${note}</em></p>` : ''}
-    <p>Đăng nhập hệ thống để xem chi tiết.</p>
+    ${pickupSection}
+    <p>Cảm ơn bạn đã sử dụng Dịch vụ Hành chính công.</p>
   `);
-};
+};

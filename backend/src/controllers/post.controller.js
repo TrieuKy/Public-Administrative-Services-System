@@ -78,6 +78,16 @@ exports.getPosts = async (req, res) => {
   } catch (err) { return error(res, err.message, 500); }
 };
 
+// GET /posts/:id — public
+exports.getPost = async (req, res) => {
+  try {
+    const post = await Post.findByPk(req.params.id);
+    if (!post) return error(res, 'Bài đăng không tồn tại', 404);
+    if (!post.isPublished) return error(res, 'Bài đăng chưa được xuất bản', 403);
+    return success(res, post);
+  } catch (err) { return error(res, err.message, 500); }
+};
+
 // POST /posts — officer/admin only
 exports.createPost = async (req, res) => {
   try {

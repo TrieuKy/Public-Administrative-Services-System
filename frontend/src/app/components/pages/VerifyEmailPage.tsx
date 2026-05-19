@@ -141,7 +141,7 @@ export function VerifyEmailPage() {
           {/* Footer */}
           <div className="bg-gray-50 border-t px-8 py-4 text-center">
             <p className="text-xs text-gray-400">
-              Cổng Dịch vụ Công cấp Xã/Phường — UBND Phường Bến Nghé
+              Dịch vụ Công Phường 11 — UBND Phường 11, Quận 3
             </p>
           </div>
         </div>

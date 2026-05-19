@@ -161,6 +161,77 @@ export function OfficerApplications() {
     }
   };
 
+  const handlePrintPermit = async (appId: number, applicationCode: string) => {
+    toast.info('Đang tạo Giấy phép PDF...');
+    try {
+      const res = await axiosInstance.get(`/officer/applications/${appId}/print-permit`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `GiayPhep_${applicationCode}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err) {
+      toast.error('Lỗi khi xuất giấy phép.');
+    }
+  };
+
+  const handlePrintMarriage = async (appId: number, applicationCode: string) => {
+    toast.info('Đang tạo Giấy chứng nhận kết hôn...');
+    try {
+      const res = await axiosInstance.get(`/officer/applications/${appId}/print-marriage`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `GiayChungNhanKetHon_${applicationCode}.pdf`);
+      document.body.appendChild(link); link.click(); link.parentNode?.removeChild(link);
+    } catch { toast.error('Lỗi khi xuất Giấy chứng nhận kết hôn.'); }
+  };
+
+  const handlePrintCopyAuth = async (appId: number, applicationCode: string) => {
+    toast.info('Đang tạo Lời chứng thực bản sao...');
+    try {
+      const res = await axiosInstance.get(`/officer/applications/${appId}/print-copy-auth`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `LoiChungThucBanSao_${applicationCode}.pdf`);
+      document.body.appendChild(link); link.click(); link.parentNode?.removeChild(link);
+    } catch { toast.error('Lỗi khi xuất Lời chứng thực.'); }
+  };
+
+  const handlePrintDeath = async (appId: number, applicationCode: string) => {
+    toast.info('Đang tạo Trích lục khai tử...');
+    try {
+      const res = await axiosInstance.get(`/officer/applications/${appId}/print-death`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `TrichLucKhaiTu_${applicationCode}.pdf`);
+      document.body.appendChild(link); link.click(); link.parentNode?.removeChild(link);
+    } catch { toast.error('Lỗi khi xuất Trích lục khai tử.'); }
+  };
+
+  // Chọn hàm print thông minh theo tên dịch vụ
+  const getSmartPrintHandler = (app: any) => {
+    const name = (app.service?.name || '').toLowerCase();
+    if (name.includes('kết hôn'))           return () => handlePrintMarriage(app.id, app.applicationCode);
+    if (name.includes('chứng thực') || name.includes('bản sao')) return () => handlePrintCopyAuth(app.id, app.applicationCode);
+    if (name.includes('khai tử') || name.includes('tử'))         return () => handlePrintDeath(app.id, app.applicationCode);
+    if (app.service?.category === 'organization')                return () => handlePrintPermit(app.id, app.applicationCode);
+    return () => handlePrint(app.id, app.applicationCode);
+  };
+
+  const getSmartPrintLabel = (app: any) => {
+    const name = (app.service?.name || '').toLowerCase();
+    if (name.includes('kết hôn'))           return 'Giấy CN Kết hôn';
+    if (name.includes('chứng thực') || name.includes('bản sao')) return 'Lời chứng thực';
+    if (name.includes('khai tử') || name.includes('tử'))         return 'Trích lục khai tử';
+    if (app.service?.category === 'organization')                return 'Giấy phép HĐ';
+    return 'Giấy xác nhận';
+  };
+
   const handleViewDocument = async (doc: any) => {
     const newWindow = window.open('', '_blank');
     if (newWindow) newWindow.document.write('Đang tải tài liệu...');
@@ -367,7 +438,11 @@ export function OfficerApplications() {
                         <Eye size={16} />
                       </button>
                       {app.status === 'COMPLETED' && (
-                        <button title="Tải PDF" onClick={() => handlePrint(app.id, app.applicationCode)} className="w-8 h-8 rounded-full flex items-center justify-center border border-blue-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition">
+                        <button
+                          title={getSmartPrintLabel(app)}
+                          onClick={getSmartPrintHandler(app)}
+                          className="w-8 h-8 rounded-full flex items-center justify-center border border-blue-200 text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition"
+                        >
                           <Download size={16} />
                         </button>
                       )}
@@ -415,9 +490,9 @@ export function OfficerApplications() {
 
       {/* Detail Modal */}
       {selectedApplication && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <Card className="max-w-4xl w-full bg-white shadow-2xl overflow-hidden my-8 rounded-xl border border-gray-200">
-            <div className="bg-red-50/50 border-b border-gray-100 p-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+          <Card className="max-w-4xl w-full bg-white shadow-2xl overflow-hidden rounded-xl border border-gray-200 flex flex-col max-h-[95vh]">
+            <div className="bg-red-50/50 border-b border-gray-100 p-4 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2 text-[#b3141b] font-bold">
                 <FileText size={20} /> CHI TIẾT HỒ SƠ
               </div>
@@ -426,7 +501,7 @@ export function OfficerApplications() {
               </button>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6 overflow-y-auto">
               <div className="bg-orange-50 border border-orange-100 rounded-xl p-5 mb-6 relative">
                 <div className="absolute top-4 right-4 text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-700 rounded-md">{selectedApplication.status}</div>
                 <h3 className="text-red-600 font-medium text-sm mb-1">{selectedApplication.applicationCode}</h3>
@@ -461,6 +536,17 @@ export function OfficerApplications() {
                 </div>
 
               </div>
+
+              {/* Pickup notification banner for COMPLETED */}
+              {selectedApplication.status === 'COMPLETED' && (
+                <div className="mb-6 p-4 bg-green-50 border-2 border-green-400 rounded-xl flex gap-3">
+                  <div className="text-2xl">&#128204;</div>
+                  <div>
+                    <p className="font-bold text-green-800 mb-1">Thông báo đến nhận giấy tờ</p>
+                    <p className="text-sm text-green-700">Hồ sơ đã được duyệt. Công dân cần <strong>đến trực tiếp UBND Phường</strong> để nhận giấy tờ gốc có dấu đỏ. Mang theo CMND/CCCD. Giờ làm việc: 7:30–16:30 (Thứ 2 – Thứ 6).</p>
+                  </div>
+                </div>
+              )}
 
               {/* Documents */}
               <div className="mb-6">
@@ -658,11 +744,42 @@ export function OfficerApplications() {
                     </>
                   )}
                   {selectedApplication.status === 'COMPLETED' && (
-                    <Button onClick={() => handlePrint(selectedApplication.id, selectedApplication.applicationCode)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-semibold">
-                      <Printer size={16} className="mr-2" />
-                      In đơn PDF
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={() => handlePrint(selectedApplication.id, selectedApplication.applicationCode)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+                        <Printer size={16} className="mr-2" /> In giấy xác nhận
+                      </Button>
+                      {/* Giấy phép cho dịch vụ tổ chức */}
+                      {selectedApplication.service?.category === 'organization' && (
+                        <Button onClick={() => handlePrintPermit(selectedApplication.id, selectedApplication.applicationCode)}
+                          className="bg-purple-600 hover:bg-purple-700 text-white font-semibold">
+                          <FileText size={16} className="mr-2" /> Xuất Giấy phép
+                        </Button>
+                      )}
+                      {/* Giấy chứng nhận kết hôn */}
+                      {(selectedApplication.service?.name || '').toLowerCase().includes('kết hôn') && (
+                        <Button onClick={() => handlePrintMarriage(selectedApplication.id, selectedApplication.applicationCode)}
+                          className="bg-pink-600 hover:bg-pink-700 text-white font-semibold">
+                          <FileText size={16} className="mr-2" /> Giấy CN Kết hôn
+                        </Button>
+                      )}
+                      {/* Lời chứng thực bản sao */}
+                      {((selectedApplication.service?.name || '').toLowerCase().includes('chứng thực') ||
+                        (selectedApplication.service?.name || '').toLowerCase().includes('bản sao')) && (
+                        <Button onClick={() => handlePrintCopyAuth(selectedApplication.id, selectedApplication.applicationCode)}
+                          className="bg-teal-600 hover:bg-teal-700 text-white font-semibold">
+                          <FileText size={16} className="mr-2" /> Lời chứng thực
+                        </Button>
+                      )}
+                      {/* Trích lục khai tử */}
+                      {((selectedApplication.service?.name || '').toLowerCase().includes('khai tử') ||
+                        (selectedApplication.service?.name || '').toLowerCase().includes('khai tử')) && (
+                        <Button onClick={() => handlePrintDeath(selectedApplication.id, selectedApplication.applicationCode)}
+                          className="bg-gray-700 hover:bg-gray-800 text-white font-semibold">
+                          <FileText size={16} className="mr-2" /> Trích lục khai tử
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

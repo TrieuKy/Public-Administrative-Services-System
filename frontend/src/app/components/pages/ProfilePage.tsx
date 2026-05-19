@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, FileText, CheckCircle, XCircle, AlertCircle, Clock, ShieldCheck, CreditCard, ChevronRight, UserCircle, Settings, Upload, Receipt, Eye, RefreshCw, Save } from 'lucide-react';
+import { User, FileText, CheckCircle, XCircle, AlertCircle, Clock, ShieldCheck, CreditCard, ChevronRight, UserCircle, Upload, Receipt, Eye, RefreshCw, Save, Lock, Filter } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { ApplicationDetailModal } from './ApplicationDetailModal';
@@ -89,11 +89,33 @@ export function ProfilePage() {
   
   // Tracking vars
   const [searchCode, setSearchCode] = useState('');
+  const [filterGroup, setFilterGroup] = useState('all');
+  const [filterName, setFilterName] = useState('');
   const [searchResult, setSearchResult] = useState<any | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [myApplications, setMyApplications] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingApps, setIsLoadingApps] = useState(false);
+
+  // Password change
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [pwSaving, setPwSaving] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!pwForm.current || !pwForm.next || !pwForm.confirm) { toast.error('Vui lòng điền đầy đủ thông tin'); return; }
+    if (pwForm.next.length < 6) { toast.error('Mật khẩu mới phải có ít nhất 6 ký tự'); return; }
+    if (pwForm.next !== pwForm.confirm) { toast.error('Mật khẩu xác nhận không khớp'); return; }
+    setPwSaving(true);
+    try {
+      await axiosInstance.put('/auth/me', { password: pwForm.next, currentPassword: pwForm.current });
+      toast.success('Đổi mật khẩu thành công!');
+      setPwForm({ current: '', next: '', confirm: '' });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Lỗi đổi mật khẩu');
+    } finally {
+      setPwSaving(false);
+    }
+  };
 
   // Payment history
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
@@ -152,6 +174,23 @@ export function ProfilePage() {
     }
     setIsSearching(false);
   };
+
+  // Filtered applications based on group and name
+  const SERVICE_GROUPS = [
+    { value: 'all', label: 'Tất cả' },
+    { value: 'COMPLETED', label: 'Đã hoàn thành' },
+    { value: 'PROCESSING', label: 'Đang xử lý' },
+    { value: 'PENDING', label: 'Chờ duyệt' },
+    { value: 'NEED_MORE', label: 'Cần bổ sung' },
+    { value: 'REJECTED', label: 'Bị từ chối' },
+    { value: 'DRAFT', label: 'Bản nháp' },
+  ];
+
+  const filteredApplications = myApplications.filter(app => {
+    const matchGroup = filterGroup === 'all' || app.status === filterGroup;
+    const matchName = !filterName || (app.service?.name || '').toLowerCase().includes(filterName.toLowerCase());
+    return matchGroup && matchName;
+  });
 
   const completedApps = myApplications.filter(a => a.status === 'COMPLETED').length;
   const processingApps = myApplications.filter(a => a.status === 'PROCESSING' || a.status === 'PENDING').length;
@@ -276,11 +315,11 @@ export function ProfilePage() {
               </div>
             )}
 
-            <div className="px-4 py-3 font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-between border-l-4 border-transparent cursor-pointer">
-              <div className="flex items-center gap-2 text-sm"><ShieldCheck size={16}/> Tài liệu điện tử</div>
-            </div>
-            <div className="px-4 py-3 font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-between border-l-4 border-transparent cursor-pointer">
-              <div className="flex items-center gap-2 text-sm"><Settings size={16}/> Tiện ích</div>
+            <div
+              className={`px-4 py-3 font-medium flex items-center justify-between border-l-4 cursor-pointer ${ activeTab === 'password' ? 'text-red-700 bg-red-50 border-red-700' : 'text-gray-700 border-transparent hover:bg-gray-50' }`}
+              onClick={() => setActiveTab('password')}
+            >
+              <div className="flex items-center gap-2 text-sm"><Lock size={16}/> Đổi mật khẩu</div>
             </div>
             <div
               className={`px-4 py-3 font-medium flex items-center justify-between border-l-4 cursor-pointer ${ activeTab === 'payments' ? 'text-red-700 bg-red-50 border-red-700' : 'text-gray-700 border-transparent hover:bg-gray-50' }`}
@@ -508,27 +547,41 @@ export function ProfilePage() {
           {activeTab === 'services' && (
             <div>
               <Card className="p-6 mb-6 shadow-sm border-t-8 border-t-[#cc6633]">
-                <h2 className="text-xl font-bold flex items-center gap-3 mb-6 border-b pb-4 text-[#cc6633]">
+                <h2 className="text-xl font-bold flex items-center gap-3 mb-4 border-b pb-4 text-[#cc6633]">
                   <FileText /> Dịch vụ công của tôi
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm text-gray-600 mb-1">Tên dịch vụ công</label>
-                    <input type="text" placeholder="Nhập tên dịch vụ công" className="w-full px-4 py-2 border rounded text-sm focus:outline-none focus:border-[#cc6633]" />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Mã hồ sơ</label>
-                    <input type="text" placeholder="Nhập mã hồ sơ" value={searchCode} onChange={e => setSearchCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} className="w-full px-4 py-2 border rounded text-sm focus:outline-none focus:border-[#cc6633]" />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Trạng thái hồ sơ</label>
-                    <select className="w-full px-4 py-2 border rounded text-sm bg-white focus:outline-none focus:border-[#cc6633]">
-                      <option>-- Chọn trạng thái hồ sơ --</option>
-                    </select>
-                  </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Filter size={15} className="text-gray-400" />
+                  <span className="text-sm text-gray-500 font-medium">Lọc theo nhóm dịch vụ</span>
                 </div>
-                <div className="text-center">
-                  <Button onClick={() => handleSearch()} className="bg-[#cc6633] hover:bg-[#b3592d] text-white px-8">Tìm kiếm</Button>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {SERVICE_GROUPS.map(g => (
+                    <button
+                      key={g.value}
+                      onClick={() => setFilterGroup(g.value)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                        filterGroup === g.value
+                          ? 'bg-[#cc6633] text-white border-[#cc6633]'
+                          : 'bg-white text-gray-600 border-gray-300 hover:border-[#cc6633] hover:text-[#cc6633]'
+                      }`}
+                    >
+                      {g.label}
+                      {g.value !== 'all' && (
+                        <span className="ml-1 opacity-70">
+                          ({myApplications.filter(a => a.status === g.value).length})
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    placeholder="🔍  Tìm theo tên dịch vụ..."
+                    value={filterName}
+                    onChange={e => setFilterName(e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg text-sm focus:outline-none focus:border-[#cc6633]"
+                  />
                 </div>
               </Card>
 
@@ -566,9 +619,14 @@ export function ProfilePage() {
                 <div className="bg-white rounded-lg shadow-sm border p-6">
                   {myApplications.length === 0 ? (
                      <div className="text-center py-8 text-gray-500">Bạn chưa có hồ sơ dịch vụ công nào.</div>
+                  ) : filteredApplications.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <Filter size={36} className="mx-auto mb-3 opacity-40" />
+                      <p>Không có hồ sơ nào phù hợp với bộ lọc.</p>
+                    </div>
                   ) : (
                     <div className="space-y-4">
-                      {myApplications.map((app) => (
+                      {filteredApplications.map((app) => (
                         <div key={app.id} className="border-b last:border-0 pb-4 last:pb-0">
                           <div className="flex items-start justify-between gap-2 mb-1">
                             <h3 className="font-bold text-gray-800 text-sm md:text-base">{app.service?.name}</h3>
@@ -599,6 +657,26 @@ export function ProfilePage() {
                                   Hạn thanh toán: Trước {new Date(app.paymentDeadline).toLocaleTimeString('vi-VN')} ngày {new Date(app.paymentDeadline).toLocaleDateString('vi-VN')}
                                 </div>
                               )}
+                            </div>
+                          )}
+                          
+                          {/* Yêu cầu bổ sung hoặc Bị từ chối */}
+                          {app.status === 'NEED_MORE' && (
+                            <div className="mb-3 p-3 bg-orange-50 border border-orange-200 rounded text-sm text-orange-800">
+                              <div className="flex gap-2 font-bold mb-1"><AlertCircle size={16} /> Cán bộ yêu cầu bổ sung hồ sơ</div>
+                              <p className="mb-3 text-xs italic">Chi tiết: {app.histories?.[0]?.note || 'Vui lòng bổ sung thêm giấy tờ.'}</p>
+                              <a href={`/dich-vu/${app.serviceId}`} className="inline-block px-3 py-1.5 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 transition">
+                                Nộp lại hồ sơ mới
+                              </a>
+                            </div>
+                          )}
+                          {app.status === 'REJECTED' && (
+                            <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-800">
+                              <div className="flex gap-2 font-bold mb-1"><XCircle size={16} /> Hồ sơ bị từ chối</div>
+                              <p className="mb-3 text-xs italic">Lý do: {app.rejectReason || app.histories?.[0]?.note || 'Hồ sơ không hợp lệ.'}</p>
+                              <a href={`/dich-vu/${app.serviceId}`} className="inline-block px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 transition">
+                                Nộp lại hồ sơ mới
+                              </a>
                             </div>
                           )}
                           
@@ -635,6 +713,68 @@ export function ProfilePage() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* TAB: Đổi mật khẩu */}
+          {activeTab === 'password' && (
+            <Card className="p-0 overflow-hidden shadow-sm">
+              <div className="bg-[#cc6633] text-white p-4 font-medium flex items-center gap-3">
+                <Lock size={18} />
+                <h3>Đổi mật khẩu</h3>
+              </div>
+              <div className="p-6 max-w-md">
+                <p className="text-sm text-gray-500 mb-6">Mật khẩu mới phải có ít nhất 6 ký tự. Sau khi đổi, bạn cần đăng nhập lại.</p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Mật khẩu hiện tại</label>
+                    <input
+                      type="password"
+                      value={pwForm.current}
+                      onChange={e => setPwForm({ ...pwForm, current: e.target.value })}
+                      placeholder="Nhập mật khẩu hiện tại..."
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#cc6633] focus:border-[#cc6633]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Mật khẩu mới</label>
+                    <input
+                      type="password"
+                      value={pwForm.next}
+                      onChange={e => setPwForm({ ...pwForm, next: e.target.value })}
+                      placeholder="Nhập mật khẩu mới..."
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#cc6633] focus:border-[#cc6633]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Xác nhận mật khẩu mới</label>
+                    <input
+                      type="password"
+                      value={pwForm.confirm}
+                      onChange={e => setPwForm({ ...pwForm, confirm: e.target.value })}
+                      placeholder="Nhập lại mật khẩu mới..."
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#cc6633] focus:border-[#cc6633]"
+                    />
+                    {pwForm.confirm && pwForm.next !== pwForm.confirm && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={12} /> Mật khẩu không khớp</p>
+                    )}
+                    {pwForm.confirm && pwForm.next === pwForm.confirm && pwForm.next.length >= 6 && (
+                      <p className="text-xs text-green-600 mt-1 flex items-center gap-1"><CheckCircle size={12} /> Mật khẩu khớp</p>
+                    )}
+                  </div>
+                  <Button
+                    onClick={handleChangePassword}
+                    disabled={pwSaving}
+                    className="w-full bg-[#cc6633] hover:bg-[#b3592d] text-white mt-2"
+                  >
+                    {pwSaving ? (
+                      <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang lưu...</span>
+                    ) : (
+                      <span className="flex items-center gap-2"><Save size={16} /> Đổi mật khẩu</span>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </Card>
           )}
 
           {/* TAB 4: Lịch sử thanh toán */}

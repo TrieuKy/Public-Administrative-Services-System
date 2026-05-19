@@ -371,7 +371,7 @@ export function ServiceFormPage() {
 
   // Map requiredDocs strings → docCategory codes cho AI
   const mapDocToCategory = (doc: any): string => {
-    const docStr = typeof doc === 'string' ? doc : (doc?.docName || doc?.name || String(doc || ''));
+    const docStr = typeof doc === 'string' ? doc : (doc?.label || doc?.name || doc?.docName || String(doc || ''));
     const l = docStr.toLowerCase();
     if (l.includes('ccđ') || l.includes('căn cước') || l.includes('cmđ') || l.includes('chứng minh')) return 'cccd';
     if (l.includes('hộ khẩu') || l.includes('hộ tịch')) return 'ho_khau';
@@ -494,8 +494,8 @@ export function ServiceFormPage() {
               </h3>
               <ul className="space-y-2 text-sm text-blue-800 mt-3">
                 {requiredDocs.map((doc, i) => {
-                  const docStr = typeof doc === 'string' ? doc : String(doc?.docName || doc?.name || doc || '');
-                  let docDisplay = docStr;
+                  const docStr = typeof doc === 'string' ? doc : String(doc?.label || doc?.name || doc?.docName || '');
+                  let docDisplay = docStr || '(Không rõ tên giấy tờ)';
                   const l = String(docStr).toLowerCase();
                   if (l.includes('ccđ') || l.includes('căn cước') || l.includes('cmđ') || l.includes('chứng minh')) {
                     if (!l.includes('2 mặt') && !l.includes('hai mặt')) {
