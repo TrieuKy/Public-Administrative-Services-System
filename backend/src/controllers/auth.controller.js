@@ -6,13 +6,16 @@ const emailService = require('../services/email.service');
 
 exports.register = async (req, res) => {
   try {
-    const { fullName, cccd, email, password } = req.body;
+    const { fullName, cccd, email, password, phone, address } = req.body;
 
     const exists = await User.findOne({ where: { email } });
     if (exists) return error(res, 'Email đã tồn tại', 409);
 
+    const cccdExists = await User.findOne({ where: { cccd } });
+    if (cccdExists) return error(res, 'CCCD đã được đăng ký', 409);
+
     const verifyToken = crypto.randomBytes(32).toString('hex');
-    const user = await User.create({ fullName, cccd, email, password, verifyToken });
+    const user = await User.create({ fullName, cccd, email, password, phone, address, verifyToken });
 
     // Gửi email xác thực — bắt lỗi riêng để không block đăng ký
     let emailSent = false;
@@ -42,15 +45,30 @@ exports.register = async (req, res) => {
 exports.verifyEmail = async (req, res) => {
   try {
     const { token } = req.query;
+    if (!token) return error(res, 'Token xác thực bị thiếu', 400);
+
     const user = await User.findOne({ where: { verifyToken: token } });
-    if (!user) return error(res, 'Token không hợp lệ hoặc đã hết hạn', 400);
+
+    if (!user) {
+      // Kiểm tra xem có phải token đã được dùng (tài khoản đã verify) không
+      // Nếu không tìm thấy user nào có token này, có 2 trường hợp:
+      // 1. Token thật sự không hợp lệ/hết hạn
+      // 2. Token đã được dùng và user.verifyToken đã null → tài khoản đã xác thực
+      return error(res, 'Liên kết đã được sử dụng hoặc không hợp lệ. Tài khoản có thể đã được xác thực rồi.', 400);
+    }
+
+    if (user.isVerified) {
+      // Tài khoản đã xác thực từ trước
+      return success(res, null, 'Tài khoản đã được xác thực trước đó.');
+    }
 
     await user.update({ isVerified: true, verifyToken: null });
-    return success(res, null, 'Email xác thực thành công');
+    return success(res, null, 'Email xác thực thành công! Bạn có thể đăng nhập ngay.');
   } catch (err) {
     return error(res, err.message, 500);
   }
 };
+
 
 exports.login = async (req, res) => {
   try {
@@ -66,7 +84,7 @@ exports.login = async (req, res) => {
       return error(res, 'Email hoặc mật khẩu không đúng', 401);
 
     if (!user.isVerified)
-      return error(res, 'Tài khoản chưa xác thực. Vui lòng kiểm tra Console Backend để lấy Link kích hoạt!', 403);
+      return error(res, 'Tài khoản chưa xác thực. Vui lòng kiểm tra email để lấy link kích hoạt!', 403);
 
     const payload = { id: user.id, role: user.role };
     const accessToken  = jwt.sign(payload, process.env.JWT_SECRET,         { expiresIn: process.env.JWT_EXPIRES_IN });

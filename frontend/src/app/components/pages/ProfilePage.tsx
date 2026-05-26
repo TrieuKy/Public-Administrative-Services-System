@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, FileText, CheckCircle, XCircle, AlertCircle, Clock, ShieldCheck, CreditCard, ChevronRight, UserCircle, Upload, Receipt, Eye, RefreshCw, Save, Lock, Filter } from 'lucide-react';
+import { User, FileText, CheckCircle, XCircle, AlertCircle, Clock, ShieldCheck, ChevronRight, UserCircle, Upload, Eye, RefreshCw, Save, Lock, Filter, CreditCard } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { ApplicationDetailModal } from './ApplicationDetailModal';
@@ -117,9 +117,6 @@ export function ProfilePage() {
     }
   };
 
-  // Payment history
-  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
-
   const fetchApplications = () => {
     setIsLoadingApps(true);
     axiosInstance.get('/applications?limit=50')
@@ -133,14 +130,6 @@ export function ProfilePage() {
     axiosInstance.get('/auth/me')
       .then(res => setProfile(res.data?.data))
       .catch(console.error);
-
-    // Đọc lịch sử thanh toán từ localStorage
-    try {
-      const stored = JSON.parse(localStorage.getItem('paymentHistory') || '[]');
-      setPaymentHistory(stored);
-    } catch {
-      setPaymentHistory([]);
-    }
   }, []);
 
   // Refetch applications khi chuyển sang tab dịch vụ (để luôn có data mới nhất)
@@ -321,18 +310,7 @@ export function ProfilePage() {
             >
               <div className="flex items-center gap-2 text-sm"><Lock size={16}/> Đổi mật khẩu</div>
             </div>
-            <div
-              className={`px-4 py-3 font-medium flex items-center justify-between border-l-4 cursor-pointer ${ activeTab === 'payments' ? 'text-red-700 bg-red-50 border-red-700' : 'text-gray-700 border-transparent hover:bg-gray-50' }`}
-              onClick={() => {
-                setActiveTab('payments');
-                try { setPaymentHistory(JSON.parse(localStorage.getItem('paymentHistory') || '[]')); } catch {}
-              }}
-            >
-              <div className="flex items-center gap-2 text-sm"><CreditCard size={16}/> Lịch sử thanh toán</div>
-              {paymentHistory.length > 0 && (
-                <span className="bg-[#cc6633] text-white text-xs rounded-full px-1.5 py-0.5 font-bold">{paymentHistory.length}</span>
-              )}
-            </div>
+
           </div>
         </div>
 
@@ -777,54 +755,7 @@ export function ProfilePage() {
             </Card>
           )}
 
-          {/* TAB 4: Lịch sử thanh toán */}
-          {activeTab === 'payments' && (
-            <div>
-              <div className="bg-[#cc6633] text-white px-6 py-4 rounded-t-xl font-bold flex items-center gap-3">
-                <Receipt size={20} />
-                Lịch sử thanh toán trực tuyến
-              </div>
-              <div className="bg-white rounded-b-xl shadow-sm border border-t-0">
-                {paymentHistory.length === 0 ? (
-                  <div className="py-16 text-center">
-                    <CreditCard size={48} className="mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-500 font-medium">Chưa có giao dịch thanh toán nào</p>
-                    <p className="text-gray-400 text-sm mt-1">Sau khi thanh toán, biên lai sẽ được lưu tại đây</p>
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                    {paymentHistory.map((tx: any, idx: number) => (
-                      <div key={idx} className="p-5 hover:bg-gray-50 transition">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center shrink-0">
-                              <CheckCircle size={20} className="text-green-600" />
-                            </div>
-                            <div>
-                              <div className="font-semibold text-gray-800 text-sm">{tx.serviceName}</div>
-                              <div className="text-xs text-gray-500 mt-0.5">Mã HS: <span className="font-mono font-medium">{tx.applicationCode}</span></div>
-                              <div className="text-xs text-gray-500">Biên lai: <span className="font-mono text-[#cc6633] font-bold">{tx.receiptCode}</span></div>
-                              <div className="text-xs text-gray-400 mt-1">{new Date(tx.paidAt).toLocaleString('vi-VN')}</div>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className="font-extrabold text-green-600 text-lg">
-                              {tx.amount === 0 ? 'Miễn phí' : new Intl.NumberFormat('vi-VN').format(tx.amount) + ' đ'}
-                            </div>
-                            <span className="inline-block mt-1 bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-semibold">Đã thanh toán</span>
-                          </div>
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-dashed border-gray-200 grid grid-cols-2 gap-2 text-xs text-gray-500">
-                          <div>Phương thức: <span className="font-medium text-gray-700">{tx.paymentMethod}</span></div>
-                          <div>Cơ quan thu: <span className="font-medium text-gray-700">{tx.unit}</span></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+
 
         </div>
       </div>

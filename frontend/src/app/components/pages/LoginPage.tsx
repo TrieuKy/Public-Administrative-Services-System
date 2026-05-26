@@ -82,6 +82,7 @@ export function LoginPage() {
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {errorText && <div className="text-red-500 text-sm font-medium text-center">{errorText}</div>}
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   CMND/CCCD hoặc Mã định danh
                 </label>

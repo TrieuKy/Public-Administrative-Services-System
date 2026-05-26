@@ -39,8 +39,8 @@ export function RegisterPage() {
       return;
     }
     const cccdClean = formData.cccd.replace(/\s/g, '');
-    if (!/^(\d{9}|\d{12})$/.test(cccdClean)) {
-      setErrorText('CMND/CCCD phải có 9 hoặc 12 chữ số!');
+    if (!/^\d{12}$/.test(cccdClean)) {
+      setErrorText('CCCD phải gồm đúng 12 chữ số!');
       return;
     }
     if (!/^(0[3-9]\d{8}|0[1-2]\d{8})$/.test(formData.phone.replace(/\s/g, ''))) {
@@ -58,7 +58,10 @@ export function RegisterPage() {
 
     setLoading(true);
     try {
-      const response = await axiosInstance.post('/auth/register', formData);
+      const response = await axiosInstance.post('/auth/register', {
+        ...formData,
+        cccd: cccdClean,   // gửi đã trim space
+      });
       const data = response.data;
       if (data.success) {
         toast.success('Đăng ký thành công, vui lòng kiểm tra email để xác nhận');

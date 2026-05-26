@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader2, LogIn } from 'lucide-react';
-import axiosInstance from '../../../utils/axiosInstance';
+import axios from 'axios';   // dùng axios thuần — không qua interceptor
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
 
 export function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
@@ -15,20 +17,29 @@ export function VerifyEmailPage() {
   useEffect(() => {
     if (!token) {
       setStatus('error');
-      setMessage('Liên kết xác thực không hợp lệ hoặc đã hết hạn.');
+      setMessage('Liên kết xác thực không hợp lệ hoặc bị thiếu token.');
       return;
     }
 
-    axiosInstance.get(`/auth/verify-email?token=${token}`)
-      .then(() => {
+    // Gọi trực tiếp bằng axios thuần (không qua axiosInstance để tránh interceptor redirect)
+    axios.get(`${API_BASE}/auth/verify-email`, { params: { token } })
+      .then((res) => {
         setStatus('success');
-        setMessage('Email của bạn đã được xác thực thành công!');
+        setMessage(res.data?.message || 'Email của bạn đã được xác thực thành công!');
       })
       .catch(err => {
-        setStatus('error');
-        setMessage(err.response?.data?.message || 'Liên kết không hợp lệ hoặc đã được sử dụng.');
+        const serverMsg: string = err.response?.data?.message || '';
+        // Nếu tài khoản đã xác thực rồi → coi như success
+        if (serverMsg.includes('đã được xác thực')) {
+          setStatus('success');
+          setMessage('Tài khoản đã được xác thực. Bạn có thể đăng nhập ngay!');
+        } else {
+          setStatus('error');
+          setMessage(serverMsg || 'Liên kết không hợp lệ hoặc đã hết hạn.');
+        }
       });
   }, [token]);
+
 
   // Auto redirect sau khi success
   useEffect(() => {

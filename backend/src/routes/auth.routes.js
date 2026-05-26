@@ -2,13 +2,14 @@ const router = require('express').Router();
 const ctrl = require('../controllers/auth.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 const validate = require('../middlewares/validate.middleware');
-const { required, minLength, maxLength, isEmail } = validate;
+const { required, minLength, maxLength, isEmail, isCccd } = validate;
 
 // Schema validate
 const registerSchema = {
   fullName: [required('Họ tên là bắt buộc'), minLength(2), maxLength(100)],
+  cccd:     [required('CMND/CCCD là bắt buộc'), isCccd()],
   email:    [required('Email là bắt buộc'), isEmail()],
-  password: [required('Mật khẩu là bắt buộc'), minLength(6, 'Mật khẩu tối thiểu 6 ký tự')],
+  password: [required('Mật khẩu là bắt buộc'), minLength(8, 'Mật khẩu tối thiểu 8 ký tự')],
 };
 
 const loginSchema = {

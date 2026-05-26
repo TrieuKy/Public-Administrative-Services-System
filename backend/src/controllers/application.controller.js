@@ -321,7 +321,15 @@ exports.searchByCode = async (req, res) => {
       },
       include: [
         { model: Service, as: 'service', attributes: ['name'] },
-        { model: User, as: 'officer', attributes: ['fullName'] }
+        { model: User, as: 'officer', attributes: ['fullName'] },
+        { model: User, as: 'citizen', attributes: ['fullName'] },
+        { model: Document, as: 'documents' },
+        {
+          model: ApplicationHistory, as: 'histories',
+          include: [{ model: User, as: 'actor', attributes: ['fullName', 'role'] }],
+          separate: true,
+          order: [['createdAt', 'ASC']]
+        }
       ]
     });
 
@@ -329,4 +337,4 @@ exports.searchByCode = async (req, res) => {
 
     return success(res, app);
   } catch (err) { return error(res, err.message, 500); }
-};
+};
